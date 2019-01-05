@@ -4,12 +4,12 @@ News
 
 Latest versions of ezdxf (>= 0.9.0) are not Python 2 compatible
 
-Version 0.8.10a1 - dev
+Version 0.8.10b1 - dev
 ----------------------
 
 - BUGFIX release for Python 2 compatible main version 0.8
 - renamed groups.py into dxfgroups.py to avoid confilicts with cython
-
+- added encoding to files containing utf-8 characters (chr15m)
 
 Version 0.8.9 - 2018-11-28
 --------------------------
