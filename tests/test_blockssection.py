@@ -24,7 +24,7 @@ def blocks(ac1009):
     return BlocksSection(load_section(TESTBLOCKS, 'BLOCKS', ac1009.entitydb), ac1009)
 
 
-@pytest.mark.skipif(not PY3 and sys.platform == 'linux', reason="I don't know")
+@pytest.mark.skipif(not PY3 and sys.platform.startswith('linux'), reason="I don't know")
 def test_write(blocks):
     stream = StringIO()
     blocks.write(TagWriter(stream))

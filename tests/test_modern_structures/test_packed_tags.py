@@ -85,7 +85,7 @@ def test_tag_dict_clone(dict_data):
     assert d1.value != d2.value
 
 
-@pytest.mark.skipif(not PY3 and sys.platform == 'linux', reason="I don't know")
+@pytest.mark.skipif(not PY3 and sys.platform.startswith('linux'), reason="I don't know")
 def test_tag_dict_dxf_tags(dict_data):
     d = TagDict(dict_data)
 
