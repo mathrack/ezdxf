@@ -1,9 +1,12 @@
 # Copyright (c) 2018 Manfred Moitzi
 # License: MIT License
 import pytest
+import sys
+
 from ezdxf.lldxf.packedtags import TagArray, TagDict, VertexArray
 from ezdxf.lldxf.extendedtags import ExtendedTags
 from ezdxf.tools.c23 import PY3
+
 
 @pytest.fixture()
 def numbers():
@@ -82,7 +85,7 @@ def test_tag_dict_clone(dict_data):
     assert d1.value != d2.value
 
 
-@pytest.mark.skipif(not PY3, reason='I dont know')
+@pytest.mark.skipif(not PY3 and sys.platform == 'linux', reason="I don't know")
 def test_tag_dict_dxf_tags(dict_data):
     d = TagDict(dict_data)
 

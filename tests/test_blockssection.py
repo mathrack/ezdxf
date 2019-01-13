@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 import pytest
 from io import StringIO
+import sys
 
 import ezdxf
 from ezdxf.tools.test import compile_tags_without_handles, load_section
@@ -23,7 +24,7 @@ def blocks(ac1009):
     return BlocksSection(load_section(TESTBLOCKS, 'BLOCKS', ac1009.entitydb), ac1009)
 
 
-@pytest.mark.skipif(not PY3, reason='I dont know')
+@pytest.mark.skipif(not PY3 and sys.platform == 'linux', reason="I don't know")
 def test_write(blocks):
     stream = StringIO()
     blocks.write(TagWriter(stream))

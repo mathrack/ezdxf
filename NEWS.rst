@@ -10,6 +10,7 @@ Version 0.8.10b2 - dev
 - BUGFIX release for Python 2 compatible main version 0.8
 - renamed groups.py into dxfgroups.py to avoid confilicts with cython
 - added encoding to files containing utf-8 characters (chr15m)
+- fixed some issues when running on linux
 
 Version 0.8.9 - 2018-11-28
 --------------------------
