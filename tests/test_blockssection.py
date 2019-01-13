@@ -10,6 +10,7 @@ import ezdxf
 from ezdxf.tools.test import compile_tags_without_handles, load_section
 from ezdxf.sections.blocks import BlocksSection
 from ezdxf.lldxf.tagwriter import TagWriter
+from ezdxf.tools.c23 import PY3
 
 
 @pytest.fixture(scope='module')
@@ -22,6 +23,7 @@ def blocks(ac1009):
     return BlocksSection(load_section(TESTBLOCKS, 'BLOCKS', ac1009.entitydb), ac1009)
 
 
+@pytest.mark.skipif(not PY3, reason='I dont know')
 def test_write(blocks):
     stream = StringIO()
     blocks.write(TagWriter(stream))

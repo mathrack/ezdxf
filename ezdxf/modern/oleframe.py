@@ -7,7 +7,7 @@ oleframe_subclass = DefSubclass('AcDbOleFrame', {
     'version': DXFAttr(70),  # OLE version number
     'length': DXFAttr(90),  # Length of binary data
     # 310: Binary data (multiple lines)
-    # 1: End of OLE data (the string “OLE”)
+    # 1: End of OLE data (the string "OLE")
 })
 
 
@@ -25,7 +25,7 @@ ole2frame_subclass = DefSubclass('AcDbOle2Frame', {
     'ole_tile_mode': DXFAttr(72),  # Tile mode descriptor: 0 = Object resides in model space; 1 = Object resides in paper space
     'length': DXFAttr(90),  # Length of binary data
     # 310: Binary data (multiple lines)
-    # 1: End of OLE data (the string “OLE”)
+    # 1: End of OLE data (the string "OLE")
 })
 
 
