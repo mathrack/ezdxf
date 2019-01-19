@@ -31,14 +31,20 @@ AcDbPolyline
 0
 70
 0
+43
+0.0
 """
 
+# Order doesn't matter, not valid for AutoCAD:
+# If tag 90 is not the first TAG, AutoCAD does not close the polyline when the `close` flag is set.
 lwpolyline_subclass = DefSubclass('AcDbPolyline', {
+    'count': DXFAttr(90, xtype='Callback', getter='__len__', setter='_set_count'),
+    # always return actual length and set tag 90
+    '_count': DXFAttr(90),  # special attribute to update length
     'elevation': DXFAttr(38, default=0.0),
     'thickness': DXFAttr(39, default=0.0),
     'flags': DXFAttr(70, default=0),
     'const_width': DXFAttr(43, default=0.0),
-    'count': DXFAttr(90, xtype='Callback', getter='__len__'),
     'extrusion': DXFAttr(210, xtype='Point3D', default=(0.0, 0.0, 1.0)),
 })
 
@@ -102,14 +108,11 @@ class LWPolylinePoints(VertexArray):
                 yield DXFTag(self.BULGE_CODE, bulge)
 
 
-REMOVE_CODES = LWPOINTCODES + (90, )
-
-
 @loader.register('LWPOLYLINE', legacy=False)
 def tag_processor(tags):
     points = LWPolylinePoints.from_tags(tags)
     subclass = tags.get_subclass('AcDbPolyline')
-    replace_tags(subclass, codes=REMOVE_CODES, packed_data=points)
+    replace_tags(subclass, codes=LWPOINTCODES, packed_data=points)
     return tags
 
 
@@ -166,6 +169,7 @@ class LWPolyline(ModernGraphicEntity):
 
     def __delitem__(self, index):
         del self.lwpoints[index]
+        self.update_count()
 
     def vertices(self):
         """
@@ -201,6 +205,7 @@ class LWPolyline(ModernGraphicEntity):
 
         """
         self.lwpoints.append(point, format=format)
+        self.update_count()
 
     def insert(self, pos, point, format=DEFAULT_FORMAT):
         """
@@ -220,6 +225,7 @@ class LWPolyline(ModernGraphicEntity):
         """
         data = compile_array(point, format=format)
         self.lwpoints.insert(pos, data)
+        self.update_count()
 
     def append_points(self, points, format=DEFAULT_FORMAT):
         """
@@ -238,6 +244,7 @@ class LWPolyline(ModernGraphicEntity):
         """
         for point in points:
             self.lwpoints.append(point, format=format)
+        self.update_count()
 
     @contextmanager
     def points(self, format=DEFAULT_FORMAT):
@@ -281,6 +288,14 @@ class LWPolyline(ModernGraphicEntity):
 
     def clear(self):
         self.lwpoints.clear()
+        self.update_count()
+
+    def _set_count(self, value):
+        # use special DXF attribute, because 'count' is a callback attribute
+        self.set_dxf_attrib('_count', value)
+
+    def update_count(self):
+        self._set_count(len(self.lwpoints))
 
 
 def format_point(point, format='xyseb'):

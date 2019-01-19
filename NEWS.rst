@@ -11,6 +11,7 @@ Version 0.8.10b3 - dev
 - renamed groups.py into dxfgroups.py to avoid confilicts with cython
 - added encoding to files containing utf-8 characters (chr15m)
 - fixed some issues when running on linux
+- BUGFIX: closed LWPOLYLINE did not work with AutoCAD (order matters), introduced with v0.8.9 packed data
 
 Version 0.8.9 - 2018-11-28
 --------------------------
