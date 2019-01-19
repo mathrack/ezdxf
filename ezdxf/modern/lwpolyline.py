@@ -96,7 +96,6 @@ class LWPolylinePoints(VertexArray):
         super(LWPolylinePoints, self).append(compile_array(point, format=format))
 
     def dxftags(self):
-        yield DXFTag(90, len(self))
         for point in self:
             x, y, start_width, end_width, bulge = point
             yield DXFVertex(self.VERTEX_CODE, (x, y))
