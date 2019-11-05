@@ -1,16 +1,20 @@
 # Purpose: tables contained in tables sections
 # Created: 13.03.2011
-# Copyright (c) 2011-2018, Manfred Moitzi
+# Copyright (c) 2011-2019, Manfred Moitzi
 # License: MIT License
-from typing import TYPE_CHECKING, Iterable, Iterator, Union, Optional, Sequence
+from typing import TYPE_CHECKING, Iterable, Iterator, Union, Optional, List
+from collections import OrderedDict
 
-from ezdxf.lldxf.types import DXFTag
-from ezdxf.lldxf.tags import Tags
-from ezdxf.lldxf.extendedtags import ExtendedTags
-from ezdxf.lldxf.const import DXFTableEntryError, DXFStructureError, DXFAttributeError, Error
+from ezdxf.lldxf.const import DXFTableEntryError, DXFStructureError, DXFTypeError
+from ezdxf.entities.table import TableHead
 
 if TYPE_CHECKING:
-    from ezdxf.eztypes import Drawing, DXFEntity, DXFFactoryType, EntityDB, HandleGenerator, TagWriter
+    from ezdxf.eztypes import TagWriter, Auditor
+    from ezdxf.entities.factory import EntityFactory
+    from ezdxf.entitydb import EntityDB
+    from ezdxf.drawing import Drawing
+    from ezdxf.entities.dxfentity import DXFEntity
+    from ezdxf.entities.layer import Layer
 
 TABLENAMES = {
     'LAYER': 'LAYERS',
@@ -28,90 +32,131 @@ TABLENAMES = {
 def tablename(dxfname: str) -> str:
     """ Translate DXF-table-name to attribute-name. ('LAYER' -> 'LAYERS') """
     name = dxfname.upper()
-    return TABLENAMES.get(name, name + 'S')
+    name = TABLENAMES.get(name, name + 'S')
+    return name
 
 
 class Table:
-    def __init__(self, entities: Iterable[Tags], drawing: 'Drawing'):
-        self._table_header = None
-        self._dxfname = None
-        self._drawing = drawing
-        self._table_entries = []
-        self._build_table_entries(iter(entities))
+    def __init__(self, doc: 'Drawing' = None, entities: Iterable['DXFEntity'] = None):
+        self.doc = doc
+        self.entries = OrderedDict()
+        self._head = None
+        if entities is not None:
+            self.load(iter(entities))
+
+    def load(self, entities: Iterator['DXFEntity']) -> None:
+        """ Loading interface. (internal API)"""
+        self._head = next(entities)
+        if self._head.dxftype() != 'TABLE':
+            raise DXFStructureError("Critical structure error in TABLES section.")
+        for table_entry in entities:
+            self._append(table_entry)
+
+    @classmethod
+    def new_table(cls, name: str, handle: str, doc: 'Drawing') -> 'Table':
+        """ Create new table. (internal API)"""
+        table = cls(doc)
+        table._set_head(name, handle)
+        return table
+
+    def _set_head(self, name: str, handle: str = None) -> None:
+        self._head = TableHead.new(handle, owner='0', dxfattribs={'name': name}, doc=self.doc)
 
     # start public interface
 
     @staticmethod
     def key(entity: Union[str, 'DXFEntity']) -> str:
+        """ Unified table entry key. """
         if not isinstance(entity, str):
             entity = entity.dxf.name
         return entity.lower()  # table key is lower case
 
     @property
     def name(self) -> str:
-        return tablename(self._dxfname)
+        """ Table name like ``layers``. """
+        return tablename(self._head.dxf.name)
 
-    def has_entry(self, name: str) -> bool:
-        """ Check if an table-entry 'name' exists. """
-        key = self.key(name)
-        return any(self.key(entry) == key for entry in self)
+    def has_entry(self, name: Union[str, 'DXFEntity']) -> bool:
+        """ Returns ``True`` if an table entry `name` exist. """
+        return self.key(name) in self.entries
 
     __contains__ = has_entry
 
+    def __len__(self) -> int:
+        """ Count of table entries. """
+        return len(self.entries)
+
+    def __iter__(self) -> Iterable['DXFEntity']:
+        """ Iterable of all table entries. """
+        return iter(self.entries.values())
+
     def new(self, name: str, dxfattribs: dict = None) -> 'DXFEntity':
+        """
+        Create a new table entry `name`.
+
+        Args:
+            name: name of table entry, case insensitive
+            dxfattribs: additional DXF attributes for table entry
+
+        """
         if self.has_entry(name):
-            raise DXFTableEntryError('%s %s already exists!' % (self._dxfname, name))
+            raise DXFTableEntryError('{} {} already exists!'.format(self._head.dxf.name, name))
         dxfattribs = dxfattribs or {}
         dxfattribs['name'] = name
+        dxfattribs['owner'] = self._head.dxf.handle
         return self.new_entry(dxfattribs)
 
     def get(self, name: str) -> 'DXFEntity':
-        """ Get table-entry by name as WrapperClass(). """
+        """ Get table entry `name` (case insensitive). Raises :class:`DXFValueError` if table entry does not exist. """
         key = self.key(name)
-        for entry in iter(self):
-            if self.key(entry) == key:
-                return entry
-        raise DXFTableEntryError(name)
+        entry = self.entries.get(key, None)
+        if entry:
+            return entry
+        else:
+            raise DXFTableEntryError(name)
 
     def remove(self, name: str) -> None:
-        """ Remove table-entry from table and entitydb by name. """
+        """ Removes table entry `name`. Raises :class:`DXFValueError` if table-entry does not exist. """
+        key = self.key(name)
         entry = self.get(name)
-        handle = entry.dxf.handle
-        self.remove_handle(handle)
+        self.entitydb.delete_entity(entry)
+        self.discard(key)
 
-    def __len__(self) -> int:
-        return len(self._table_entries)
+    def duplicate_entry(self, name: str, new_name: str) -> 'DXFEntity':
+        """ Returns a new table entry `new_name` as copy of `name`, replaces entry `new_name` if already exist.
 
-    def __iter__(self) -> Iterable['DXFEntity']:
-        for handle in self._table_entries:
-            yield self.get_table_entry_wrapper(handle)
+        Raises:
+             DXFValueError: `name` does not exist
+
+        """
+        entry = self.get(name)
+        entitydb = self.entitydb
+        if entitydb:
+            new_entry = entitydb.duplicate_entity(entry)
+        else:  # only for testing!
+            new_entry = entry.copy()
+        new_entry.dxf.name = new_name
+        self._append(new_entry)
+        return new_entry
 
     # end public interface
 
-    def _build_table_entries(self, entities: Iterator[Tags]) -> None:
-        table_head = next(entities)
-        if table_head[0].value != 'TABLE':
-            raise DXFStructureError("Critical structure error in TABLES section.")
-        self._dxfname = table_head[1].value
-        self._table_header = ExtendedTags(table_head)  # do not store the table head in the entity database
-        for table_entry in entities:
-            self._append_entry_handle(table_entry.get_handle())
+    def discard(self, name: str) -> None:
+        """ Remove table entry without destroying object. (internal API) """
+        del self.entries[self.key(name)]
+
+    def replace(self, name: str, entry: 'DXFEntity') -> None:
+        """ Replace table entry `name` by new `entry`. (internal API) """
+        self.discard(name)
+        self._append(entry)
 
     @property
     def entitydb(self) -> 'EntityDB':
-        return self._drawing.entitydb
+        return self.doc.entitydb
 
     @property
-    def handles(self) -> 'HandleGenerator':
-        return self._drawing.entitydb.handles
-
-    @property
-    def dxffactory(self) -> 'DXFFactoryType':
-        return self._drawing.dxffactory
-
-    def _iter_table_entries_as_tags(self) -> Iterable[ExtendedTags]:
-        """ Iterate over table-entries as Tags(). """
-        return (self.entitydb[handle] for handle in self._table_entries)
+    def dxffactory(self) -> 'EntityFactory':
+        return self.doc.dxffactory
 
     def new_entry(self, dxfattribs: dict) -> 'DXFEntity':
         """ Create new table-entry of type 'self._dxfname', and add new entry
@@ -120,47 +165,41 @@ class Table:
         Does not check if an entry dxfattribs['name'] already exists!
         Duplicate entries are possible for Viewports.
         """
-        handle = self.handles.next()
-        entry = self.dxffactory.new_entity(self._dxfname, handle, dxfattribs)
-        self._add_entry(entry)
+        entry = self.dxffactory.create_db_entry(self._head.dxf.name, dxfattribs)
+        self._append(entry)
         return entry
 
-    def duplicate_entry(self, name: str, new_name: str) -> 'DXFEntity':
-        entry = self.get(name)
-        xtags = self.entitydb.duplicate_tags(entry.tags)
-        new_entity = self.dxffactory.wrap_entity(xtags)
-        new_entity.dxf.name = new_name
-        self._add_entry(new_entity)
-        return new_entity
+    def _append(self, entry: 'DXFEntity') -> None:
+        """ Add a table entry, replaces existing entries with same name. (internal API). """
+        self.entries[self.key(entry.dxf.name)] = entry
 
-    def _add_entry(self, entry: Union[ExtendedTags, 'DXFEntity']) -> None:
-        """ Add table-entry to table and entitydb. """
-        if isinstance(entry, ExtendedTags):
-            tags = entry
-        else:
-            tags = entry.tags
-        handle = self.entitydb.add_tags(tags)
-        self._append_entry_handle(handle)
+    def add_entry(self, entry: 'DXFEntity') -> None:
+        """ Add a table `entry`, created by other object than this table. (internal API) """
+        if entry.dxftype() != self._head.dxf.name:
+            raise DXFTypeError('Invalid table entry type {} for table {}'.format(entry.dxftype(), self.name))
+        name = entry.dxf.name
+        if self.has_entry(name):
+            raise DXFTableEntryError('{} {} already exists!'.format(self._head.dxf.name, name))
+        entry.doc = self.doc
+        entry.owner = self._head.dxf.handle
+        self._append(entry)
 
-    def _append_entry_handle(self, handle: str) -> None:
-        if handle not in self._table_entries:
-            self._table_entries.append(handle)
-
-    def get_table_entry_wrapper(self, handle: str) -> 'DXFEntity':
-        tags = self.entitydb[handle]
-        return self.dxffactory.wrap_entity(tags)
-
-    def write(self, tagwriter: 'TagWriter') -> None:
-        """ Write DXF representation to stream, stream opened with mode='wt'. """
+    def export_dxf(self, tagwriter: 'TagWriter') -> None:
+        """ Export DXF representation. (internal API) """
 
         def prologue():
             self._update_owner_handles()
-            self._update_meta_data()
-            tagwriter.write_tags(self._table_header)
+            self._head.dxf.count = len(self)
+            self._head.export_dxf(tagwriter)
 
         def content():
-            for tags in self._iter_table_entries_as_tags():
-                tagwriter.write_tags(tags)
+            for entry in self.entries.values():
+                # VPORT
+                if isinstance(entry, list):
+                    for e in entry:
+                        e.export_dxf(tagwriter)
+                else:
+                    entry.export_dxf(tagwriter)
 
         def epilogue():
             tagwriter.write_tag2(0, 'ENDTAB')
@@ -170,43 +209,26 @@ class Table:
         epilogue()
 
     def _update_owner_handles(self) -> None:
-        if self._drawing.dxfversion <= 'AC1009':
-            return  # no owner handles
-        owner_handle = self._table_header.get_handle()
-        for entry in iter(self):
-            if not entry.supports_dxf_attrib('owner'):
-                raise DXFAttributeError(repr(entry))
+        owner_handle = self._head.dxf.handle
+        for entry in self.entries.values():
             entry.dxf.owner = owner_handle
 
-    def _update_meta_data(self) -> None:
-        count = len(self)
-        if self._drawing.dxfversion > 'AC1009':
-            subclass = self._table_header.get_subclass('AcDbSymbolTable')
-        else:
-            subclass = self._table_header.noclass
-        subclass.set_first(DXFTag(70, count))
+    def set_handle(self, handle: str):
+        """ Set new `handle` for table, updates also :attr:`owner` tag of table entries. (internal API)"""
+        if self._head.dxf.handle is None:
+            self._head.dxf.handle = handle
+            self._update_owner_handles()
 
-    def remove_handle(self, handle: str) -> None:
-        """ Remove table-entry from table and entitydb by handle. """
-        self._table_entries.remove(handle)
-        del self.entitydb[handle]
+    def audit(self, auditor: 'Auditor'):
+        pass
 
-    def audit(self, auditor) -> None:
-        """
-        Checks for table entries with same key.
-        """
-        entries = sorted(self._table_entries, key=lambda e: self.key(e))
-        prev_key = None
-        for entry in entries:
-            key = self.key(entry)
-            if key == prev_key:
-                auditor.add_error(
-                    code=Error.DUPLICATE_TABLE_ENTRY_NAME,
-                    message="Duplicate table entry name '{1}' in table {0}".format(self.name, entry.dxf.name),
-                    dxf_entity=self,
-                    data=key,
-                )
-            prev_key = key
+
+class LayerTable(Table):
+    def new_entry(self, dxfattribs: dict) -> 'DXFEntity':
+        layer = super().new_entry(dxfattribs)  # type: Layer
+        if self.doc:
+            layer.set_required_attributes()
+        return layer
 
 
 class StyleTable(Table):
@@ -239,8 +261,6 @@ class StyleTable(Table):
         Args:
             shxname: .shx shape file name
 
-        Returns:
-            table entry or None if not found
         """
         lower_name = shxname.lower()
         for entry in iter(self):
@@ -251,16 +271,69 @@ class StyleTable(Table):
 
 class ViewportTable(Table):
     # Viewport-Table can have multiple entries with same name
-    def new(self, name: str, dxfattribs: dict = None):
+    # each table entry is a list of VPORT entries
+
+    def new(self, name: str, dxfattribs: dict = None) -> 'DXFEntity':
+        """ Creat a new table entry. """
         dxfattribs = dxfattribs or {}
         dxfattribs['name'] = name
         return self.new_entry(dxfattribs)
 
-    def get_config(self, name: str) -> Sequence['DXFEntity']:
-        key_func = self.key
-        search_key = key_func(name)
-        return [entry for entry in self if search_key == key_func(entry)]
+    def remove(self, name: str) -> None:
+        """ Remove table-entry from table and entitydb by name. """
+        key = self.key(name)
+        entries = self.get(name)  # type: List[DXFEntity]
+        for entry in entries:
+            self.entitydb.delete_entity(entry)
+        del self.entries[key]
+
+    def __iter__(self) -> Iterable['DXFEntity']:
+        for entries in self.entries.values():
+            yield from iter(entries)
+
+    def _flatten(self):
+        for entries in self.entries.values():
+            yield from iter(entries)
+
+    def __len__(self):
+        # calling __iter__() invokes recursion!
+        return len(list(self._flatten()))
+
+    def new_entry(self, dxfattribs: dict) -> 'DXFEntity':
+        """ Create new table-entry of type 'self._dxfname', and add new entry
+        to table.
+
+        Does not check if an entry dxfattribs['name'] already exists!
+        Duplicate entries are possible for Viewports.
+        """
+        entry = self.dxffactory.create_db_entry(self._head.dxf.name, dxfattribs)
+        self._append(entry)
+        return entry
+
+    def duplicate_entry(self, name: str, new_name: str) -> 'DXFEntity':
+        raise NotImplementedError()
+
+    def _append(self, entry: 'DXFEntity') -> None:
+        key = self.key(entry)
+        if key in self.entries:
+            self.entries[key].append(entry)  # type: List[DXFEntity]
+        else:
+            self.entries[key] = [entry]  # store list of VPORT
+
+    def _update_owner_handles(self) -> None:
+        owner_handle = self._head.dxf.handle
+        for entries in self.entries.values():
+            for entry in entries:
+                entry.dxf.owner = owner_handle
+
+    def get_config(self, name: str) -> List['DXFEntity']:
+        """ Returns a list of :class:`~ezdxf.entities.Viewport` objects, for the multi-viewport configuration `name`.
+        """
+        try:
+            return self.entries[self.key(name)]
+        except KeyError:
+            raise DXFTableEntryError(name)
 
     def delete_config(self, name: str) -> None:
-        for entry in self.get_config(name):
-            self.remove_handle(entry.dxf.handle)
+        """ Delete all :class:`~ezdxf.entities.Viewport` objects of the multi-viewport configuration `name`. """
+        self.remove(name)

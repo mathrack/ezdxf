@@ -1,282 +1,260 @@
 Surface
 =======
 
-.. class:: Surface(Body)
+.. module:: ezdxf.entities
+    :noindex:
 
-Introduced in DXF version R2007 (AC1021), dxftype is SURFACE.
+SURFACE (`DXF Reference`_) created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
 
-A 3D object created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
-Create :class:`Surface` objects in layouts and blocks by factory function
-:meth:`~ezdxf.modern.layouts.Layout.add_surface`.
+`ezdxf` will never interpret ACIS source code, don't ask me for this feature.
 
-DXF Attributes for Surface
---------------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Body`
+DXF type                 ``'SURFACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_surface`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-:ref:`Common DXF attributes for DXF R13 or later`
+.. warning::
 
-.. attribute:: Surface.dxf.u_count
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-Number of U isolines
+.. class:: Surface
 
-.. attribute:: Surface.dxf.v_count
+    Same attributes and methods as parent class :class:`Body`.
 
-Number of V2 isolines
+    .. attribute:: dxf.u_count
 
-Surface Methods
----------------
+        Number of U isolines.
 
-.. method:: Surface.get_acis_data()
+    .. attribute:: dxf.v_count
 
-Get the ACIS source code as a list of strings.
-
-.. method:: Surface.set_acis_data(test_lines)
-
-Set the ACIS source code as a list of strings **without** line endings.
-
-.. method:: Surface.edit_data()
-
-Context manager for ACIS text lines, returns :class:`ModelerGeometryData`.
+        Number of V2 isolines.
 
 .. _Spatial Corp.: http://www.spatial.com/products/3d-acis-modeling
 
 ExtrudedSurface
-===============
+---------------
 
-.. class:: ExtrudedSurface(Surface)
+(`DXF Reference`_)
 
-Introduced in DXF version R2007 (AC1021), dxftype is EXTRUDEDSURFACE.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Surface`
+DXF type                 ``'EXTRUDEDSURFACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_extruded_surface`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2007 (``'AC1021'``)
+======================== ==========================================
 
-DXF Attributes for ExtrudedSurface
-----------------------------------
+.. class:: ExtrudedSurface
 
-.. attribute:: ExtrudedSurface.dxf.class_id
+    Same attributes and methods as parent class :class:`Surface`.
 
-.. attribute:: ExtrudedSurface.dxf.sweep_vector
+    .. attribute:: dxf.class_id
 
-.. attribute:: ExtrudedSurface.dxf.draft_angle
+    .. attribute:: dxf.sweep_vector
 
-.. attribute:: ExtrudedSurface.dxf.draft_start_distance
+    .. attribute:: dxf.draft_angle
 
-.. attribute:: ExtrudedSurface.dxf.draft_end_distance
+    .. attribute:: dxf.draft_start_distance
 
-.. attribute:: ExtrudedSurface.dxf.twist_angle
+    .. attribute:: dxf.draft_end_distance
 
-.. attribute:: ExtrudedSurface.dxf.scale_factor
+    .. attribute:: dxf.twist_angle
 
-.. attribute:: ExtrudedSurface.dxf.align_angle
+    .. attribute:: dxf.scale_factor
 
-.. attribute:: ExtrudedSurface.dxf.solid
+    .. attribute:: dxf.align_angle
 
-.. attribute:: ExtrudedSurface.dxf.sweep_alignment_flags
+    .. attribute:: dxf.solid
 
-    - 0 = No alignment
-    - 1 = Align sweep entity to path
-    - 2 = Translate sweep entity to path
-    - 3 = Translate path to sweep entity
+    .. attribute:: dxf.sweep_alignment_flags
 
-.. attribute:: ExtrudedSurface.dxf.align_start
+        === ===============================
+        0   No alignment
+        1   Align sweep entity to path
+        2   Translate sweep entity to path
+        3   Translate path to sweep entity
+        === ===============================
 
-.. attribute:: ExtrudedSurface.dxf.bank
+    .. attribute:: dxf.align_start
 
-.. attribute:: ExtrudedSurface.dxf.base_point_set
+    .. attribute:: dxf.bank
 
-.. attribute:: ExtrudedSurface.dxf.sweep_entity_transform_computed
+    .. attribute:: dxf.base_point_set
 
-.. attribute:: ExtrudedSurface.dxf.path_entity_transform_computed
+    .. attribute:: dxf.sweep_entity_transform_computed
 
-.. attribute:: ExtrudedSurface.dxf.reference_vector_for_controlling_twist
+    .. attribute:: dxf.path_entity_transform_computed
 
+    .. attribute:: dxf.reference_vector_for_controlling_twist
 
-ExtrudedSurface Methods
------------------------
+    .. attribute:: transformation_matrix_extruded_entity
 
-.. method:: ExtrudedSurface.set_transformation_matrix_extruded_entity(matrix)
+        type: :class:`~ezdxf.math.Matrix44`
 
-    :param matrix: iterable of 16 numeric values.
+    .. attribute:: sweep_entity_transformation_matrix
 
-.. method:: ExtrudedSurface.get_transformation_matrix_extruded_entity()
+        type: :class:`~ezdxf.math.Matrix44`
 
-    :returns: :class:`~ezdxf.math.Matrix44` object
+    .. attribute:: path_entity_transformation_matrix
 
-.. method:: ExtrudedSurface.set_sweep_entity_transformation_matrix(matrix)
-
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: ExtrudedSurface.get_sweep_entity_transformation_matrix()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
-
-.. method:: ExtrudedSurface.set_path_entity_transformation_matrix(matrix)
-
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: ExtrudedSurface.get_path_entity_transformation_matrix()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
+        type: :class:`~ezdxf.math.Matrix44`
 
 LoftedSurface
-=============
+-------------
 
-.. class:: LoftedSurface(Surface)
+(`DXF Reference`_)
 
-Introduced in DXF version R2007 (AC1021), dxftype is LOFTEDSURFACE.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Surface`
+DXF type                 ``'LOFTEDSURFACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_lofted_surface`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2007 (``'AC1021'``)
+======================== ==========================================
 
-DXF Attributes for LoftedSurface
-----------------------------------
+.. class:: LoftedSurface
 
-.. attribute:: LoftedSurface.dxf.plane_normal_lofting_type
+    Same attributes and methods as parent class :class:`Surface`.
 
-.. attribute:: LoftedSurface.dxf.start_draft_angle
+    .. attribute:: dxf.plane_normal_lofting_type
 
-.. attribute:: LoftedSurface.dxf.end_draft_angle
+    .. attribute:: dxf.start_draft_angle
 
-.. attribute:: LoftedSurface.dxf.start_draft_magnitude
+    .. attribute:: dxf.end_draft_angle
 
-.. attribute:: LoftedSurface.dxf.end_draft_magnitude
+    .. attribute:: dxf.start_draft_magnitude
 
-.. attribute:: LoftedSurface.dxf.arc_length_parameterization
+    .. attribute:: dxf.end_draft_magnitude
 
-.. attribute:: LoftedSurface.dxf.no_twist
+    .. attribute:: dxf.arc_length_parameterization
 
-.. attribute:: LoftedSurface.dxf.align_direction
+    .. attribute:: dxf.no_twist
 
-.. attribute:: LoftedSurface.dxf.simple_surfaces
+    .. attribute:: dxf.align_direction
 
-.. attribute:: LoftedSurface.dxf.closed_surfaces
+    .. attribute:: dxf.simple_surfaces
 
-.. attribute:: LoftedSurface.dxf.solid
+    .. attribute:: dxf.closed_surfaces
 
-.. attribute:: LoftedSurface.dxf.ruled_surface
+    .. attribute:: dxf.solid
 
-.. attribute:: LoftedSurface.dxf.virtual_guide
+    .. attribute:: dxf.ruled_surface
 
-LoftedSurface Methods
----------------------
+    .. attribute:: dxf.virtual_guide
 
-.. method:: LoftedSurface.set_transformation_matrix_lofted_entity(matrix)
+    .. attribute:: set_transformation_matrix_lofted_entity
 
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: LoftedSurface.get_transformation_matrix_lofted_entity()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
+        type: :class:`~ezdxf.math.Matrix44`
 
 RevolvedSurface
-===============
+---------------
 
-.. class:: RevolvedSurface(Surface)
+(`DXF Reference`_)
 
-Introduced in DXF version R2007 (AC1021), dxftype is REVOLVEDSURFACE.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Surface`
+DXF type                 ``'REVOLVEDSURFACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_revolved_surface`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2007 (``'AC1021'``)
+======================== ==========================================
 
-DXF Attributes for RevolvedSurface
-----------------------------------
+.. class:: RevolvedSurface
 
-.. attribute:: RevolvedSurface.dxf.class_id
+    Same attributes and methods as parent class :class:`Surface`.
 
-.. attribute:: RevolvedSurface.dxf.axis_point
+    .. attribute:: dxf.class_id
 
-.. attribute:: RevolvedSurface.dxf.axis_vector
+    .. attribute:: dxf.axis_point
 
-.. attribute:: RevolvedSurface.dxf.revolve_angle
+    .. attribute:: dxf.axis_vector
 
-.. attribute:: RevolvedSurface.dxf.start_angle
+    .. attribute:: dxf.revolve_angle
 
-.. attribute:: RevolvedSurface.dxf.draft_angle
+    .. attribute:: RevolvedSurface.dxf.start_angle
 
-.. attribute:: RevolvedSurface.dxf.start_draft_distance
+    .. attribute:: dxf.draft_angle
 
-.. attribute:: RevolvedSurface.dxf.end_draft_distance
+    .. attribute:: dxf.start_draft_distance
 
-.. attribute:: RevolvedSurface.dxf.twist_angle
+    .. attribute:: dxf.end_draft_distance
 
-.. attribute:: RevolvedSurface.dxf.solid
+    .. attribute:: dxf.twist_angle
 
-.. attribute:: RevolvedSurface.dxf.close_to_axis
+    .. attribute:: dxf.solid
 
-RevolvedSurface Methods
------------------------
+    .. attribute:: dxf.close_to_axis
 
-.. method:: RevolvedSurface.set_transformation_matrix_revolved_entity(matrix)
+    .. attribute:: transformation_matrix_revolved_entity
 
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: RevolvedSurface.get_transformation_matrix_revolved_entity()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
+        type: :class:`~ezdxf.math.Matrix44`
 
 SweptSurface
-============
+------------
 
-.. class:: SweptSurface(Surface)
+(`DXF Reference`_)
 
-Introduced in DXF version R2007 (AC1021), dxftype is SWEPTSURFACE.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Surface`
+DXF type                 ``'SWEPTSURFACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_swept_surface`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2007 (``'AC1021'``)
+======================== ==========================================
 
-DXF Attributes for SweptSurface
--------------------------------
+.. class:: SweptSurface
 
-.. attribute:: SweptSurface.dxf.swept_entity_id
+    Same attributes and methods as parent class :class:`Surface`.
 
-.. attribute:: SweptSurface.dxf.path_entity_id
+    .. attribute:: dxf.swept_entity_id
 
-.. attribute:: SweptSurface.dxf.draft_angle
+    .. attribute:: dxf.path_entity_id
 
-.. attribute:: SweptSurface.dxf.draft_start_distance
+    .. attribute:: dxf.draft_angle
 
-.. attribute:: SweptSurface.dxf.draft_end_distance
+    .. attribute:: draft_start_distance
 
-.. attribute:: SweptSurface.dxf.twist_angle
+    .. attribute:: dxf.draft_end_distance
 
-.. attribute:: SweptSurface.dxf.scale_factor
+    .. attribute:: dxf.twist_angle
 
-.. attribute:: SweptSurface.dxf.align_angle
+    .. attribute:: dxf.scale_factor
 
-.. attribute:: SweptSurface.dxf.solid
+    .. attribute:: dxf.align_angle
 
-.. attribute:: SweptSurface.dxf.sweep_alignment
+    .. attribute:: dxf.solid
 
-.. attribute:: SweptSurface.dxf.align_start
+    .. attribute:: dxf.sweep_alignment
 
-.. attribute:: SweptSurface.dxf.bank
+    .. attribute:: dxf.align_start
 
-.. attribute:: SweptSurface.dxf.base_point_set
+    .. attribute:: dxf.bank
 
-.. attribute:: SweptSurface.dxf.sweep_entity_transform_computed
+    .. attribute:: dxf.base_point_set
 
-.. attribute:: SweptSurface.dxf.path_entity_transform_computed
+    .. attribute:: dxf.sweep_entity_transform_computed
 
-.. attribute:: SweptSurface.dxf.reference_vector_for_controlling_twist
+    .. attribute:: dxf.path_entity_transform_computed
 
-SweptSurface Methods
---------------------
+    .. attribute:: dxf.reference_vector_for_controlling_twist
 
-.. method:: SweptSurface.set_transformation_matrix_sweep_entity(matrix)
+    .. attribute:: transformation_matrix_sweep_entity
 
-    :param matrix: iterable of 16 numeric values.
+        type: :class:`~ezdxf.math.Matrix44`
 
-.. method:: SweptSurface.get_transformation_matrix_sweep_entity()
+    .. method:: transformation_matrix_path_entity
 
-    :returns: :class:`~ezdxf.math.Matrix44` object
+        type: :class:`~ezdxf.math.Matrix44`
 
-.. method:: SweptSurface.set_transformation_matrix_path_entity(matrix)
+    .. method:: sweep_entity_transformation_matrix
 
-    :param matrix: iterable of 16 numeric values.
+        type: :class:`~ezdxf.math.Matrix44`
 
-.. method:: SweptSurface.get_transformation_matrix_path_entity()
+    .. method:: path_entity_transformation_matrix
 
-    :returns: :class:`~ezdxf.math.Matrix44` object
+        type: :class:`~ezdxf.math.Matrix44`
 
-.. method:: SweptSurface.set_sweep_entity_transformation_matrix(matrix)
-
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: SweptSurface.get_sweep_entity_transformation_matrix()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
-
-.. method:: SweptSurface.set_path_entity_transformation_matrix(matrix)
-
-    :param matrix: iterable of 16 numeric values.
-
-.. method:: SweptSurface.get_path_entity_transformation_matrix()
-
-    :returns: :class:`~ezdxf.math.Matrix44` object
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-BB62483A-89C3-47C4-80E5-EA3F08979863

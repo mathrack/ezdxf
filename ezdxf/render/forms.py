@@ -3,7 +3,8 @@
 # Copyright (c) 2018 Manfred Moitzi
 # License: MIT License
 from typing import TYPE_CHECKING, Iterable, List, Tuple
-from math import pi, sin, cos, radians, tan, isclose
+from math import pi, sin, cos, radians, tan, isclose, asin
+from enum import IntEnum
 from ezdxf.math import Vector, Matrix44
 from ezdxf.math.construct2d import is_close_points
 from ezdxf.math.bspline import bspline_control_frame
@@ -16,16 +17,17 @@ if TYPE_CHECKING:
 
 def circle(count: int, radius: float = 1, elevation: float = 0, close: bool = False) -> Iterable[Vector]:
     """
-    Create polygon vertices for a circle with *radius* and *count* corners,
-    *elevation* is the z-axis for all vertices.
+    Create polygon vertices for a `circle <https://en.wikipedia.org/wiki/Circle>`_ with `radius` and `count` corners,
+    `elevation` is the z-axis for all vertices.
 
     Args:
         count: count of polygon vertices
         radius: circle radius
-        elevation: z axis for all vertices
-        close: yields first vertex also as last vertex if True.
+        elevation: z-axis for all vertices
+        close: yields first vertex also as last vertex if ``True``.
 
-    Returns: yields Vector() objects in counter clockwise orientation
+    Returns:
+        vertices in counter clockwise orientation as :class:`~ezdxf.math.Vector` objects
 
     """
     radius = float(radius)
@@ -44,20 +46,20 @@ def circle(count: int, radius: float = 1, elevation: float = 0, close: bool = Fa
 def ellipse(count: int, rx: float = 1, ry: float = 1, start_param: float = 0, end_param: float = 2 * pi,
             elevation: float = 0) -> Iterable[Vector]:
     """
-    Create polygon vertices for an ellipse with *rx* as x-axis radius and *ry*
-    for y-axis radius with *count* vertices, *elevation* is the z-axis for all
-    vertices. The ellipse goes from *start_param* to *end_param* in counter
-    clockwise orientation.
+    Create polygon vertices for an `ellipse <https://en.wikipedia.org/wiki/Ellipse>`_ with `rx` as x-axis radius
+    and `ry` for y-axis radius with `count` vertices, `elevation` is the z-axis for all
+    vertices. The ellipse goes from `start_param` to `end_param` in counter clockwise orientation.
 
     Args:
         count: count of polygon vertices
         rx: ellipse x-axis radius
         ry: ellipse y-axis radius
-        start_param: start of ellipse in range 0 .. 2*pi
-        end_param: end of ellipse in range 0 .. 2*pi
+        start_param: start of ellipse in range ``0`` .. ``2*pi``
+        end_param: end of ellipse in range ``0`` .. ``2*pi``
         elevation: z-axis for all vertices
 
-    Returns: yields Vector() objects
+    Returns:
+        vertices in counter clockwise orientation as :class:`~ezdxf.math.Vector` objects
 
     """
     rx = float(rx)
@@ -73,9 +75,9 @@ def ellipse(count: int, rx: float = 1, ry: float = 1, start_param: float = 0, en
 
 def euler_spiral(count: int, length: float = 1, curvature: float = 1, elevation: float = 0) -> Iterable[Vector]:
     """
-    Create polygon vertices for an euler spiral of a given length and
+    Create polygon vertices for an `euler spiral <https://en.wikipedia.org/wiki/Euler_spiral>`_ of a given `length` and
     radius of curvature. This is a parametric curve, which always starts
-    at the origin.
+    at the origin ``(0, 0)``.
 
     Args:
         count: count of polygon vertices
@@ -83,7 +85,8 @@ def euler_spiral(count: int, length: float = 1, curvature: float = 1, elevation:
         curvature: radius of curvature
         elevation: z-axis for all vertices
 
-    Returns: yields Vector() objects
+    Returns:
+        vertices as :class:`~ezdxf.math.Vector` objects
 
     """
     spiral = EulerSpiral(curvature=curvature)
@@ -93,7 +96,7 @@ def euler_spiral(count: int, length: float = 1, curvature: float = 1, elevation:
 
 def square(size: float = 1.) -> Tuple[Vector, Vector, Vector, Vector]:
     """
-    Return 4 vertices for a square with a side length of `size`, lower left corner is (0, 0), upper right corner is
+    Returns 4 vertices for a square with a side length of `size`, lower left corner is ``(0, 0)``, upper right corner is
     (`size`, `size`).
 
     """
@@ -102,7 +105,7 @@ def square(size: float = 1.) -> Tuple[Vector, Vector, Vector, Vector]:
 
 def box(sx: float = 1., sy: float = 1.) -> Tuple[Vector, Vector, Vector, Vector]:
     """
-    Return 4 vertices for a box `sx` by `sy`, lower left corner is (0, 0), upper right corner is (`sx`, `sy`).
+    Returns 4 vertices for a box `sx` by `sy`, lower left corner is ``(0, 0)``, upper right corner is (`sx`, `sy`).
 
     """
     return Vector(0, 0), Vector(sx, 0), Vector(sx, sy), Vector(0, sy)
@@ -158,9 +161,172 @@ def arrow2(size: float = 1., angle: float = 30., beta: float = 45.) -> Tuple[Vec
     return Vector(-size, h), Vector(0, 0), Vector(-size, -h), Vector(-size + back_step, 0)
 
 
+def ngon(count: int, length: float = None, radius: float = None, rotation: float = 0.,
+         elevation: float = 0., close: bool = False) -> Iterable[Vector]:
+    """
+    Returns the corner vertices of a `regular polygon <https://en.wikipedia.org/wiki/Regular_polygon>`_.
+    The polygon size is determined by the edge `length` or the circum `radius` argument.
+    If both are given `length` has higher priority.
+
+    Args:
+        count: count of polygon corners >= ``3``
+        length: length of polygon side
+        radius: circum radius
+        rotation: rotation angle in radians
+        elevation: z-axis for all vertices
+        close: yields first vertex also as last vertex if ``True``.
+
+    Returns:
+        vertices as :class:`~ezdxf.math.Vector` objects
+
+    """
+    if count < 3:
+        raise ValueError('Argument `count` has to be greater than 2.')
+    if length is not None:
+        if length <= 0.:
+            raise ValueError('Argument `length` has to be greater than 0.')
+        radius = length / 2. / sin(pi / count)
+    elif radius is not None:
+        if radius <= 0.:
+            raise ValueError('Argument `radius` has to be greater than 0.')
+    else:
+        raise ValueError('Argument `length` or `radius` required.')
+
+    delta = 2. * pi / count
+    angle = rotation
+    first = None
+    for _ in range(count):
+        v = Vector(radius * cos(angle), radius * sin(angle), elevation)
+        if first is None:
+            first = v
+        yield v
+        angle += delta
+
+    if close:
+        yield first
+
+
+def star(count: int, r1: float, r2: float, rotation: float = 0., elevation: float = 0.,
+         close: bool = False) -> Iterable[Vector]:
+    """
+    Returns corner vertices for `star shapes <https://en.wikipedia.org/wiki/Star_polygon>`_.
+
+    Argument `count` defines the count of star spikes, `r1` defines the radius of the "outer" vertices and `r2`
+    defines the radius of the "inner" vertices, but this does not mean that `r1` has to be greater than `r2`.
+
+    Args:
+        count: spike count >= ``3``
+        r1: radius 1
+        r2: radius 2
+        rotation: rotation angle in radians
+        elevation: z-axis for all vertices
+        close: yields first vertex also as last vertex if ``True``.
+
+    Returns:
+        vertices as :class:`~ezdxf.math.Vector` objects
+
+    """
+    if count < 3:
+        raise ValueError('Argument `count` has to be greater than 2.')
+    if r1 <= 0.:
+        raise ValueError('Argument `r1` has to be greater than 0.')
+    if r2 <= 0.:
+        raise ValueError('Argument `r2` has to be greater than 0.')
+
+    corners1 = ngon(count, radius=r1, rotation=rotation, elevation=elevation, close=False)
+    corners2 = ngon(count, radius=r2, rotation=pi / count + rotation, elevation=elevation, close=False)
+    first = None
+    for s1, s2 in zip(corners1, corners2):
+        if first is None:
+            first = s1
+        yield s1
+        yield s2
+
+    if close:
+        yield first
+
+
+class _Gear(IntEnum):
+    TOP_START = 0
+    TOP_END = 1
+    BOTTOM_START = 2
+    BOTTOM_END = 3
+
+
+def gear(count: int, top_width: float, bottom_width: float, height: float, outside_radius: float, elevation: float = 0,
+         close: bool = False) -> Iterable[Vector]:
+    """
+    Returns `gear <https://en.wikipedia.org/wiki/Gear>`_ (cogwheel) corner vertices.
+
+    .. warning::
+
+        This function does not create correct gears for mechanical engineering!
+
+    Args:
+        count: teeth count >= ``3``
+        top_width: teeth width at outside radius
+        bottom_width: teeth width at base radius
+        height: teeth height; base radius = outside radius - height
+        outside_radius: outside radius
+        elevation: z-axis for all vertices
+        close: yields first vertex also as last vertex if True.
+
+    Returns:
+        vertices in counter clockwise orientation as :class:`~ezdxf.math.Vector` objects
+
+    """
+    if count < 3:
+        raise ValueError('Argument `count` has to be greater than 2.')
+    if outside_radius <= 0.:
+        raise ValueError('Argument `radius` has to be greater than 0.')
+    if top_width <= 0.:
+        raise ValueError('Argument `width` has to be greater than 0.')
+    if bottom_width <= 0.:
+        raise ValueError('Argument `width` has to be greater than 0.')
+    if height <= 0.:
+        raise ValueError('Argument `height` has to be greater than 0.')
+    if height >= outside_radius:
+        raise ValueError('Argument `height` has to be smaller than `radius`')
+
+    base_radius = outside_radius - height
+    alpha_top = asin(top_width / 2. / outside_radius)  # angle at tooth top
+    alpha_bottom = asin(bottom_width / 2. / base_radius)  # angle at tooth bottom
+    alpha_difference = (alpha_bottom - alpha_top) / 2.  # alpha difference at start and end of tooth
+    beta = (2. * pi - count * alpha_bottom) / count
+    angle = -alpha_top / 2.  # center of first tooth is in x-axis direction
+    state = _Gear.TOP_START
+    first = None
+    for _ in range(4 * count):
+        if state == _Gear.TOP_START or state == _Gear.TOP_END:
+            radius = outside_radius
+        else:
+            radius = base_radius
+        v = Vector(radius * cos(angle), radius * sin(angle), elevation)
+
+        if state == _Gear.TOP_START:
+            angle += alpha_top
+        elif state == _Gear.TOP_END:
+            angle += alpha_difference
+        elif state == _Gear.BOTTOM_START:
+            angle += beta
+        elif state == _Gear.BOTTOM_END:
+            angle += alpha_difference
+
+        if first is None:
+            first = v
+        yield v
+
+        state += 1
+        if state > _Gear.BOTTOM_END:
+            state = _Gear.TOP_START
+
+    if close:
+        yield first
+
+
 def translate(vertices: Iterable['Vertex'], vec: 'Vertex' = (0, 0, 1)) -> Iterable[Vector]:
     """
-    Simple translation, faster than a Matrix44 transformation.
+    Translate `vertices` along `vec`, faster than a Matrix44 transformation.
 
     Args:
         vertices: iterable of vertices
@@ -176,7 +342,7 @@ def translate(vertices: Iterable['Vertex'], vec: 'Vertex' = (0, 0, 1)) -> Iterab
 
 def rotate(vertices: Iterable['Vertex'], angle: 0., deg: bool = True) -> Iterable[Vector]:
     """
-    Simple rotation about to z-axis at to origin (0, 0), faster than a Matrix44 transformation.
+    Rotate `vertices` about to z-axis at to origin (0, 0), faster than a Matrix44 transformation.
 
     Args:
         vertices: iterable of vertices
@@ -190,6 +356,23 @@ def rotate(vertices: Iterable['Vertex'], angle: 0., deg: bool = True) -> Iterabl
         return (Vector(v).rotate_deg(angle) for v in vertices)
     else:
         return (Vector(v).rotate(angle) for v in vertices)
+
+
+def scale(vertices: Iterable['Vertex'], scaling=(1., 1., 1.)) -> Iterable[Vector]:
+    """
+    Scale `vertices` around the origin (0, 0), faster than a Matrix44 transformation.
+
+    Args:
+        vertices: iterable of vertices
+        scaling: scale factors as tuple of floats for x-, y- and z-axis
+
+    Returns: yields scaled vertices
+
+    """
+    sx, sy, sz = scaling
+    for v in vertices:
+        v = Vector(v)
+        yield Vector(v.x * sx, v.y * sy, v.z * sz)
 
 
 def close_polygon(vertices: Iterable['Vertex']) -> List['Vertex']:
@@ -240,13 +423,11 @@ cube_faces = [
 
 def cube(center: bool = True, matrix: Matrix44 = None) -> MeshBuilder:
     """
-    Create a cube as MeshBuilder() object.
+    Create a `cube <https://en.wikipedia.org/wiki/Cube>`_ as :class:`~ezdxf.render.MeshBuilder` object.
 
     Args:
-        matrix: transformation matrix
-        center: 'mass' center of cube in (0, 0, 0) if True, else first corner at (0, 0, 0)
-
-    Returns: MeshBuilder()
+        matrix: transformation matrix as :class:`~ezdxf.math.Matrix44` object
+        center: 'mass' center of cube, ``(0, 0, 0)`` if ``True``, else first corner at ``(0, 0, 0)``
 
     """
     mesh = MeshBuilder()
@@ -258,15 +439,15 @@ def cube(center: bool = True, matrix: Matrix44 = None) -> MeshBuilder:
 
 def extrude(profile: Iterable['Vertex'], path: Iterable['Vertex'], close: bool = True) -> MeshVertexMerger:
     """
-    Extrude a profile polygon along a path polyline, vertices of profile should be in
+    Extrude a `profile` polygon along a `path` polyline, vertices of profile should be in
     counter clockwise order.
 
     Args:
-        profile: sweeping profile as list of (x, y, z) tuples in counter clock wise order
-        path:  extrusion path as list of (x, y, z) tuples
-        close: close profile polygon if True
+        profile: sweeping profile as list of ``(x, y, z)`` tuples in counter clock wise order
+        path:  extrusion path as list of ``(x, y, z)`` tuples
+        close: close profile polygon if ``True``
 
-    Returns: MeshVertexMerger()
+    Returns: :class:`~ezdxf.render.MeshVertexMerger`
 
     """
 
@@ -300,16 +481,14 @@ def extrude(profile: Iterable['Vertex'], path: Iterable['Vertex'], close: bool =
 def cylinder(count: int, radius: float = 1., top_radius: float = None, top_center: 'Vertex' = (0, 0, 1),
              caps: bool = True) -> MeshVertexMerger:
     """
-    Create a cylinder as MeshVertexMerger() object.
+    Create a `cylinder <https://en.wikipedia.org/wiki/Cylinder>`_ as :class:`~ezdxf.render.MeshVertexMerger` object.
 
     Args:
         count: profiles edge count
         radius: radius for bottom profile
-        top_radius: radius for top profile, if None top_radius == radius
+        top_radius: radius for top profile, if ``None`` top_radius == radius
         top_center: location vector for the center of the top profile
         caps: close hull with bottom cap and top cap (as N-gons)
-
-    Returns: MeshVertexMerger()
 
     """
     if top_radius is None:
@@ -326,14 +505,14 @@ def cylinder(count: int, radius: float = 1., top_radius: float = None, top_cente
 def from_profiles_linear(profiles: Iterable[Iterable['Vertex']], close: bool = True,
                          caps: bool = False) -> MeshVertexMerger:
     """
-    Mesh by linear connected profiles.
+    Create MESH entity by linear connected `profiles`.
 
     Args:
         profiles: list of profiles
-        close: close profile polygon if True
+        close: close profile polygon if ``True``
         caps: close hull with bottom cap and top cap (as N-gons)
 
-    Returns: MeshVertexMerger()
+    Returns: :class:`~ezdxf.render.MeshVertexMerger`
 
     """
     mesh = MeshVertexMerger()
@@ -406,16 +585,18 @@ def spline_interpolated_profiles(profiles: Iterable[Iterable['Vertex']], subdivi
 def from_profiles_spline(profiles: Iterable[Iterable['Vertex']], subdivide: int = 4, close: bool = True,
                          caps: bool = False) -> MeshVertexMerger:
     """
-    Mesh entity by spline interpolation between given profiles. Requires at least 4 profiles. A subdivide value of 4,
-    means, create 4 face loops between two profiles, without interpolation two profiles create one face loop.
+    Create MESH entity by spline interpolation between given `profiles`. Requires at least 4 profiles.
+    A subdivide value of 4, means, create 4 face loops between two profiles, without interpolation two
+    profiles create one face loop.
 
     Args:
         profiles: list of profiles
         subdivide: count of face loops
-        close: close profile polygon if True
+        close: close profile polygon if ``True``
         caps: close hull with bottom cap and top cap (as N-gons)
 
-    Returns: MeshVertexMerger()
+    Returns: :class:`~ezdxf.render.MeshVertexMerger`
+
 
     """
     profiles = list(profiles)
@@ -428,15 +609,13 @@ def from_profiles_spline(profiles: Iterable[Iterable['Vertex']], subdivide: int 
 
 def cone(count: int, radius: float, apex: 'Vertex' = (0, 0, 1), caps: bool = True) -> MeshVertexMerger:
     """
-    Cone as Mesh.
+    Create a `cone <https://en.wikipedia.org/wiki/Cone>`_ as :class:`~ezdxf.render.MeshVertexMerger` object.
 
     Args:
         count: edge count of basis
         radius: radius of basis
         apex: apex of the cone
         caps: add a bottom face if true
-
-    Returns: MeshVertexMerger()
 
     """
     mesh = MeshVertexMerger()
@@ -451,7 +630,7 @@ def cone(count: int, radius: float, apex: 'Vertex' = (0, 0, 1), caps: bool = Tru
 def rotation_form(count: int, profile: Iterable['Vertex'], angle: float = 2 * pi,
                   axis: 'Vertex' = (1, 0, 0)) -> MeshVertexMerger:
     """
-    Mesh by rotating a profile around an axis.
+    Create MESH entity by rotating a `profile` around an `axis`.
 
     Args:
         count: count of rotated profiles
@@ -459,7 +638,7 @@ def rotation_form(count: int, profile: Iterable['Vertex'], angle: float = 2 * pi
         angle: rotation angle in radians
         axis: rotation axis
 
-    Returns: MeshVertexMerger()
+    Returns: :class:`~ezdxf.render.MeshVertexMerger`
 
     """
     if count < 3:

@@ -1,184 +1,497 @@
 # Created: 11.03.2011
-# Copyright (c) 2011-2018, Manfred Moitzi
+# Copyright (c) 2011-2019, Manfred Moitzi
 # License: MIT License
-from typing import TYPE_CHECKING, TextIO, Iterable
+from typing import TYPE_CHECKING, TextIO, Iterable, Union, Sequence, Tuple, Callable
 from datetime import datetime
 import io
 import logging
 from itertools import chain
-from ezdxf.database import EntityDB
-from ezdxf.lldxf.const import DXFVersionError, acad_release, BLK_XREF, BLK_EXTERNAL, DXFValueError
+
+from ezdxf.lldxf.const import acad_release, BLK_XREF, BLK_EXTERNAL, DXFValueError, acad_release_to_dxf_version
+from ezdxf.lldxf.const import DXF13, DXF14, DXF2000, DXF2007, DXF12, DXF2013, versions_supported_by_save
+from ezdxf.lldxf.const import DXFVersionError
 from ezdxf.lldxf.loader import load_dxf_structure, fill_database
-from ezdxf.dxffactory import dxffactory
-from ezdxf.templates import TemplateLoader
-from ezdxf.options import options
-from ezdxf.tools.codepage import tocodepage, toencoding
-from ezdxf.sections.sections import Sections
-from ezdxf.tools.juliandate import juliandate
 from ezdxf.lldxf import repair
+from .lldxf.tagwriter import TagWriter
+
+from ezdxf.entitydb import EntityDB
+from ezdxf.entities.factory import EntityFactory
+from ezdxf.layouts.layouts import Layouts
+from ezdxf.tools.codepage import tocodepage, toencoding
+from ezdxf.tools.juliandate import juliandate
+
 from ezdxf.tools import guid
 from ezdxf.tracker import Tracker
 from ezdxf.query import EntityQuery
 from ezdxf.groupby import groupby
 from ezdxf.render.dimension import DimensionRenderer
 
+from ezdxf.sections.header import HeaderSection
+from ezdxf.sections.classes import ClassesSection
+from ezdxf.sections.tables import TablesSection
+from ezdxf.sections.blocks import BlocksSection
+from ezdxf.sections.entities import EntitySection, StoredSection
+from ezdxf.sections.objects import ObjectsSection
+from ezdxf.sections.acdsdata import AcDsDataSection
+
+from ezdxf.entities.dxfgroups import GroupCollection
+from ezdxf.entities.material import MaterialCollection
+from ezdxf.entities.mleader import MLeaderStyleCollection
+from ezdxf.entities.mline import MLineStyleCollection
+
 logger = logging.getLogger('ezdxf')
+MANAGED_SECTIONS = {'HEADER', 'CLASSES', 'TABLES', 'BLOCKS', 'ENTITIES', 'OBJECTS', 'ACDSDATA'}
 
 if TYPE_CHECKING:
-    from .eztypes import HandleGenerator, DXFTag, LayoutType, SectionDict
-    from .eztypes import GroupManager, MaterialManager, MLeaderStyleManager, MLineStyleManager
-    from .eztypes import SectionType, HeaderSection, BlocksSection, Table, ViewportTable
+    from ezdxf.eztypes import DXFTag, Table, ViewportTable
+    from ezdxf.eztypes import Dictionary, BlockLayout, Layout
+    from ezdxf.eztypes import DXFEntity, Layer, DXFLayout, BlockRecord
 
+    LayoutType = Union[Layout, BlockLayout]
+
+TFilterStack = Sequence[Sequence[Callable[[Iterable['DXFTag']], Iterable['DXFTag']]]]
+
+
+# [(raw_tag_filter1, raw_tag_filter2), (compiled_tag_filter1, )]
 
 class Drawing:
-    """
-    The Central Data Object
-    """
+    def __init__(self, dxfversion=DXF2013):
+        self.entitydb = EntityDB()
+        self.dxffactory = EntityFactory(self)
+        self.tracker = Tracker()  # still required
 
-    def __init__(self, tagger: Iterable['DXFTag']):
+        # Targeted DXF version, but drawing could be exported as another DXF version.
+        # If target version is set, it is possible to warn user, if they try to use unsupported features, where they
+        # use it and not at exporting, where the location of the code who created that features is not known.
+        target_dxfversion = dxfversion.upper()
+        self._dxfversion = acad_release_to_dxf_version.get(target_dxfversion, target_dxfversion)
+        self._loaded_dxfversion = None  # if loaded from file, store original dxf version
+        self.encoding = 'cp1252'
+        self.filename = None  # type: str # read/write
+
+        # named objects dictionary
+        self.rootdict = None  # type: Dictionary
+
+        # DXF sections
+        self.header = None  # type: HeaderSection
+        self.classes = None  # type: ClassesSection
+        self.tables = None  # type: TablesSection
+        self.blocks = None  # type: BlocksSection
+        self.entities = None  # type: EntitySection
+        self.objects = None  # type: ObjectsSection
+
+        # DXF R2013 and later
+        self.acdsdata = None  # type: AcDsDataSection
+
+        self.stored_sections = []
+        self.layouts = None  # type: Layouts
+        self.groups = None  # type: GroupCollection  # read only
+        self.materials = None  # type: MaterialCollection # read only
+        self.mleader_styles = None  # type: MLeaderStyleCollection # read only
+        self.mline_styles = None  # type: MLineStyleCollection # read only
+        self._acad_compatible = True  # will generated DXF file compatible with AutoCAD
+        self._dimension_renderer = DimensionRenderer()  # set DIMENSION rendering engine
+        self._acad_incompatibility_reason = set()  # avoid multiple warnings for same reason
+        # Don't create any new entities here:
+        # New created handles could collide with handles loaded from DXF file.
+        assert len(self.entitydb) == 0
+
+    @classmethod
+    def new(cls, dxfversion: str = DXF2013) -> 'Drawing':
+        """ Create new drawing. Package users should use the factory function :func:`ezdxf.new`.
+        (internal API)
         """
-        Build a new DXF drawing from a steam of DXF tags.
+        doc = Drawing(dxfversion)
+        doc._setup()
+        return doc
+
+    def _get_encoding(self):
+        codepage = self.header.get('$DWGCODEPAGE', 'ANSI_1252')
+        return toencoding(codepage)
+
+    def _setup(self):
+        self.header = HeaderSection.new()
+        self.classes = ClassesSection(self)
+        self.tables = TablesSection(self)
+        self.blocks = BlocksSection(self)
+        self.entities = EntitySection(self)
+        self.objects = ObjectsSection(self)
+        self.acdsdata = AcDsDataSection(self)  # AcDSData section is not supported for new drawings
+        self.rootdict = self.objects.rootdict
+        self.objects.setup_objects_management_tables(self.rootdict)  # create missing tables
+        self.layouts = Layouts.setup(self)
+        self._finalize_setup()
+
+    def _finalize_setup(self):
+        """ Common setup tasks for new and loaded DXF drawings. """
+        self.groups = GroupCollection(self)
+        self.materials = MaterialCollection(self)
+
+        self.mline_styles = MLineStyleCollection(self)
+        # all required internal structures are ready
+        # now do the stuff to please AutoCAD
+        self._create_required_table_entries()
+
+        # mleader_styles requires text styles
+        self.mleader_styles = MLeaderStyleCollection(self)
+        self._set_required_layer_attributes()
+        self._setup_metadata()
+
+    def _create_required_table_entries(self):
+        self._create_required_vports()
+        self._create_required_linetypes()
+        self._create_required_layers()
+        self._create_required_styles()
+        self._create_required_appids()
+        self._create_required_dimstyles()
+
+    def _set_required_layer_attributes(self):
+        for layer in self.layers:  # type: Layer
+            layer.set_required_attributes()
+
+    def _create_required_vports(self):
+        if '*Active' not in self.viewports:
+            self.viewports.new('*Active')
+
+    def _create_required_appids(self):
+        if 'ACAD' not in self.appids:
+            self.appids.new('ACAD')
+
+    def _create_required_linetypes(self):
+        linetypes = self.linetypes
+        for name in ('ByBlock', 'ByLayer', 'Continuous'):
+            if name not in linetypes:
+                linetypes.new(name)
+
+    def _create_required_dimstyles(self):
+        if 'Standard' not in self.dimstyles:
+            self.dimstyles.new('Standard')
+
+    def _create_required_styles(self):
+        if 'Standard' not in self.styles:
+            self.styles.new('Standard')
+
+    def _create_required_layers(self):
+        layers = self.layers
+        if '0' not in layers:
+            layers.new('0')
+        if 'Defpoints' not in layers:
+            layers.new('Defpoints', dxfattribs={'plot': 0})  # do not plot
+
+    def _setup_metadata(self):
+        self.header['$ACADVER'] = self.dxfversion
+        self.header['$TDCREATE'] = juliandate(datetime.now())
+        self.reset_fingerprint_guid()
+        self.reset_version_guid()
+
+    @property
+    def dxfversion(self) -> str:
+        """ Get current DXF version. """
+        return self._dxfversion
+
+    @dxfversion.setter
+    def dxfversion(self, version) -> None:
+        """ Set current DXF version. """
+        self._dxfversion = self._validate_dxf_version(version)
+        self.header['$ACADVER'] = version
+
+    def _validate_dxf_version(self, version: str) -> str:
+        version = version.upper()
+        version = acad_release_to_dxf_version.get(version, version)  # translates 'R12' -> 'AC1009'
+        if version not in versions_supported_by_save:
+            raise DXFVersionError('Unsupported DXF version "{}".'.format(version))
+        if version == DXF12:
+            if self._dxfversion > DXF12:
+                logger.warning('Downgrade from DXF {} to R12 may create an invalid DXF file.'.format(
+                    self.acad_release
+                ))
+        elif version < self._dxfversion:
+            logger.info('Downgrade from DXF {} to {} can cause lost of features.'.format(
+                self.acad_release, acad_release[version]
+            ))
+        return version
+
+    @classmethod
+    def read(cls, stream: TextIO, legacy_mode: bool = False, filter_stack: TFilterStack = None) -> 'Drawing':
+        """ Open an existing drawing. Package users should use the factory function :func:`ezdxf.read`.
 
         Args:
-             tagger: generator or list of DXF tags as DXFTag() objects
+             stream: text stream yielding text (unicode) strings by readline()
+             legacy_mode: apply some low level filters to correct some quirks allowed in legacy (R12) files
+             filter_stack: interface to put filters between reading layers, list of callable filters, for now
+                           two levels are supported, after low level tagging (DXFVertex) and after compiling tags to
+                           DXFVertex and DXFBinaryTag.
+
+                TFilterStack: Sequence[Sequence[Callable[[Iterable[DXFTag]], Iterable[DXFTag]]]]
+                e.g. [(raw_tag_filter1, raw_tag_filter2), (compiled_tag_filter1, )]
+
+        (internal API)
         """
+        from .lldxf.tagger import low_level_tagger, tag_compiler
+        raw_tag_filters = []
+        compiled_tag_filters = []
 
-        def get_header(sections: 'SectionDict') -> 'SectionType':
-            from .sections.header import HeaderSection
-            header_entities = sections.get('HEADER', [None])[0]  # all tags in the first DXF structure entity
-            return HeaderSection(header_entities)
+        if filter_stack:
+            # maybe more levels in the future
+            raw_tag_filters, compiled_tag_filters, *_ = filter_stack
 
-        self.tracker = Tracker()
-        self._dimension_renderer = DimensionRenderer()  # set DIMENSION rendering engine
-        self._groups = None  # type: GroupManager  # read only
-        self._materials = None  # type: MaterialManager # read only
-        self._mleader_styles = None  # type: MLeaderStyleManager # read only
-        self._mline_styles = None  # type: MLineStyleManager # read only
-        self._acad_compatible = True  # will generated DXF file compatible with AutoCAD
-        self._acad_incompatibility_reason = set()  # avoid multiple warnings for same reason
-        self.filename = None  # type: str # read/write
-        self.entitydb = EntityDB()  # read only
+        # legacy mode overrides filter_stack
+        if legacy_mode:
+            raw_tag_filters = [repair.tag_reorder_layer, repair.filter_invalid_yz_point_codes]
+            compiled_tag_filters = []
+
+        # low level tag compiler, creates simple tuple like tags DXFTag(group code, value)
+        tagger = low_level_tagger(stream)
+
+        # apply low level filters
+        for _filter in raw_tag_filters:
+            tagger = _filter(tagger)
+
+        # compiles vertices and binary tags into DXFVertex() or DXFBinaryTag()
+        tagger = tag_compiler(tagger)
+
+        # apply compiled tags filter
+        for _filter in compiled_tag_filters:
+            tagger = _filter(tagger)
+
+        doc = Drawing()
+        doc._load(tagger)
+        return doc
+
+    @classmethod
+    def from_tags(cls, compiled_tags: Iterable['DXFTag']) -> 'Drawing':
+        """ Create new drawing from compiled tags. (internal API)"""
+        doc = Drawing()
+        doc._load(compiled_tags)
+        return doc
+
+    def _load(self, tagger: Iterable['DXFTag']):
         sections = load_dxf_structure(tagger)  # load complete DXF entity structure
-        # create section HEADER
-        header = get_header(sections)
-        self.dxfversion = header.get('$ACADVER', 'AC1009')  # type: str # read only
-        self.dxffactory = dxffactory(self)  # read only, requires self.dxfversion
-        self.encoding = toencoding(header.get('$DWGCODEPAGE', 'ANSI_1252'))  # type: str # read/write
+        try:  # discard section THUMBNAILIMAGE
+            del sections['THUMBNAILIMAGE']
+        except KeyError:
+            pass
+        # -----------------------------------------------------------------------------------
+        # create header section:
+        # all header tags are the first DXF structure entity
+        header_entities = sections.get('HEADER', [None])[0]
+        if header_entities is None:
+            # create default header, files without header are by default DXF R12
+            self.header = HeaderSection.new(dxfversion=DXF12)
+        else:
+            self.header = HeaderSection.load(header_entities)
+        # -----------------------------------------------------------------------------------
+        # missing $ACADVER defaults to DXF R12
+        self._dxfversion = self.header.get('$ACADVER', DXF12)  # type: str
+        self._loaded_dxfversion = self._dxfversion  # save dxf version of loaded file
+        self.encoding = toencoding(self.header.get('$DWGCODEPAGE', 'ANSI_1252'))  # type: str # read/write
         # get handle seed
-        seed = header.get('$HANDSEED', str(self.entitydb.handles))  # type: str
+        seed = self.header.get('$HANDSEED', str(self.entitydb.handles))  # type: str
         # setup handles
         self.entitydb.handles.reset(seed)
         # store all necessary DXF entities in the drawing database
-        fill_database(self.entitydb, sections, dxfversion=self.dxfversion)
-        # create sections: TABLES, BLOCKS, ENTITIES, CLASSES, OBJECTS
-        self.sections = Sections(sections, drawing=self, header=header)
+        fill_database(sections, self.dxffactory)
+        # all handles used in the DXF file are known at this point
+        # -----------------------------------------------------------------------------------
+        # create sections:
+        self.classes = ClassesSection(self, sections.get('CLASSES', None))
+        self.tables = TablesSection(self, sections.get('TABLES', None))
+        # create *Model_Space and *Paper_Space BLOCK_RECORDS
+        # BlockSection setup takes care about the rest
+        self._create_required_block_records()
+        # table records available
+        self.blocks = BlocksSection(self, sections.get('BLOCKS', None))
 
-        if self.dxfversion > 'AC1009':
-            self.rootdict = self.objects.rootdict
-            self.objects.setup_objects_management_tables(self.rootdict)  # create missing tables
-            if self.dxfversion in ('AC1012', 'AC1014'):  # releases R13 and R14
-                repair.upgrade_to_ac1015(self)
-            # some applications don't setup properly the model and paper space layouts
-            repair.setup_layouts(self)
-            self._groups = self.objects.groups()
-            self._materials = self.objects.materials()
-            self._mleader_styles = self.objects.mleader_styles()
-            self._mline_styles = self.objects.mline_styles()
-        else:  # dxfversion <= 'AC1009' do cleanup work, before building layouts
-            if self.dxfversion < 'AC1009':  # legacy DXF version
-                repair.upgrade_to_ac1009(self)  # upgrade to DXF format AC1009 (DXF R12)
-            repair.cleanup_r12(self)
-            # ezdxf puts automatically handles into all entities added to the entities database
-            # write R12 without handles, by setting $HANDLING = 0
-            self.header['$HANDLING'] = 1  # write handles by default
+        self.entities = EntitySection(self, sections.get('ENTITIES', None))
+        self.objects = ObjectsSection(self, sections.get('OBJECTS', None))
+        # only valid for DXF R2013 and later
+        self.acdsdata = AcDsDataSection(self, sections.get('ACDSDATA', None))
 
-        self.layouts = self.dxffactory.get_layouts()
+        for name, data in sections.items():
+            if name not in MANAGED_SECTIONS:
+                self.stored_sections.append(StoredSection(data))
+        # -----------------------------------------------------------------------------------
+        if self.dxfversion < DXF12:
+            # upgrade to DXF R12
+            logger.info('Upgrading drawing to DXF R12.')
+            self.dxfversion = DXF12
+
+        # DIMSTYLE: ezdxf uses names for blocks, linetypes and text style as internal data, handles are set at export
+        # requires BLOCKS and TABLES section!
+        self.tables.resolve_dimstyle_names()
+
+        if self.dxfversion == DXF12:
+            # TABLE requires in DXF12 no handle and has no owner tag, but DXF R2000+, requires a TABLE with handle
+            # and each table entry has an owner tag, pointing to the TABLE entry
+            self.tables.create_table_handles()
+
+        if self.dxfversion in (DXF13, DXF14):
+            # upgrade to DXF R2000
+            # todo: more?
+            self.dxfversion = DXF2000
+
+        self.rootdict = self.objects.rootdict
+        self.objects.setup_objects_management_tables(self.rootdict)  # create missing tables
+
+        self.layouts = Layouts.load(self)
+        self._finalize_setup()
+
+    def _create_required_block_records(self):
+        if '*Model_Space' not in self.block_records:
+            self.block_records.new('*Model_Space')
+        if '*Paper_Space' not in self.block_records:
+            self.block_records.new('*Paper_Space')
+
+    def saveas(self, filename: str, encoding: str = None) -> None:
+        """
+        Write drawing to file-system by setting the :attr:`~ezdxf.drawing.Drawing.filename`
+        attribute to `filename`. For argument `encoding` see: :meth:`~ezdxf.drawing.Drawing.save`.
+
+        Args:
+            filename: file name as string
+            encoding: override file encoding
+
+        """
+        self.filename = filename
+        self.save(encoding=encoding)
+
+    def save(self, encoding: str = None) -> None:
+        """
+        Write drawing to file-system by using the :attr:`~ezdxf.drawing.Drawing.filename` attribute as filename.
+        Override file encoding by argument `encoding`, handle with care, but this option allows you to create
+        DXF files for applications that handles file encoding different than AutoCAD.
+
+        Args:
+            encoding: override default encoding as Python encoding string like ``'utf-8'``
+
+        """
+        # DXF R12, R2000, R2004 - ASCII encoding
+        # DXF R2007 and newer - UTF-8 encoding
+
+        if encoding is None:
+            enc = 'utf-8' if self.dxfversion >= DXF2007 else self.encoding
+        else:  # override default encoding, for applications that handles encoding different than AutoCAD
+            enc = encoding
+        # in ASCII mode, unknown characters will be escaped as \U+nnnn unicode characters.
+
+        with io.open(self.filename, mode='wt', encoding=enc, errors='dxfreplace') as fp:
+            self.write(fp)
+
+    def write(self, stream: TextIO) -> None:
+        """
+        Write drawing to a text stream. For DXF R2004 (AC1018) and prior open stream with drawing
+        :attr:`~ezdxf.drawing.Drawing.encoding` and :code:`mode='wt'`. For DXF R2007 (AC1021) and later use
+        :code:`encoding='utf-8'`.
+
+        Args:
+            stream: output text stream
+
+        """
+        dxfversion = self.dxfversion
+        if dxfversion == DXF12:
+            handles = bool(self.header.get('$HANDLING', 0))
+        else:
+            handles = True
+        if dxfversion > DXF12:
+            self.classes.add_required_classes(dxfversion)
+
+        self._create_appids()
+        self._update_header_vars()
+        self._update_metadata()
+        tagwriter = TagWriter(stream, write_handles=handles, dxfversion=dxfversion)
+        self.export_sections(tagwriter)
+
+    def export_sections(self, tagwriter: 'TagWriter') -> None:
+        """ DXF export sections. (internal API) """
+        dxfversion = tagwriter.dxfversion
+        self.header.export_dxf(tagwriter)
+        if dxfversion > DXF12:
+            self.classes.export_dxf(tagwriter)
+        self.tables.export_dxf(tagwriter)
+        self.blocks.export_dxf(tagwriter)
+        self.entities.export_dxf(tagwriter)
+        if dxfversion > DXF12:
+            self.objects.export_dxf(tagwriter)
+        if self.acdsdata.is_valid:
+            self.acdsdata.export_dxf(tagwriter)
+        for section in self.stored_sections:
+            section.export_dxf(tagwriter)
+
+        tagwriter.write_tag2(0, 'EOF')
+
+    def _update_header_vars(self):
+        from ezdxf.lldxf.const import acad_maint_ver
+
+        # set or correct $CMATERIAL handle
+        material = self.entitydb.get(self.header.get('$CMATERIAL', None))
+        if material is None or material.dxftype() != 'MATERIAL':
+            if 'ByLayer' in self.materials:
+                self.header['$CMATERIAL'] = self.materials.get('ByLayer').dxf.handle
+            else:  # set any handle, except '0' which crashes BricsCAD
+                self.header['$CMATERIAL'] = '45'
+
+        # set ACAD maintenance version - same values as used by BricsCAD
+        self.header['$ACADMAINTVER'] = acad_maint_ver.get(self.dxfversion, 0)
+
+    def _update_metadata(self):
+        now = datetime.now()
+        self.header['$TDUPDATE'] = juliandate(now)
+        self.header['$HANDSEED'] = str(self.entitydb.next_handle())
+        self.header['$DWGCODEPAGE'] = tocodepage(self.encoding)
+        self.reset_version_guid()
+
+    def _create_appid_if_not_exist(self, name: str, flags: int = 0) -> None:
+        if name not in self.appids:
+            self.appids.new(name, {'flags': flags})
+
+    def _create_appids(self):
+        if 'HATCH' in self.tracker.dxftypes:
+            self._create_appid_if_not_exist('HATCHBACKGROUNDCOLOR', 0)
 
     @property
     def acad_release(self) -> str:
+        """ The AutoCAD release number string like ``'R12'`` or ``'R2000'`` for actual DXF version of this drawing. """
         return acad_release.get(self.dxfversion, "unknown")
 
     @property
-    def acad_compatible(self) -> bool:
-        return self._acad_compatible
-
-    def add_acad_incompatibility_message(self, msg: str):
-        self._acad_compatible = False
-        if msg not in self._acad_incompatibility_reason:
-            self._acad_incompatibility_reason.add(msg)
-            logger.warning('Drawing is incompatible to AutoCAD, because {}.'.format(msg))
-
-    @property
-    def _handles(self) -> 'HandleGenerator':
-        return self.entitydb.handles
-
-    @property
-    def header(self) -> 'HeaderSection':
-        return self.sections.header
-
-    @property
     def layers(self) -> 'Table':
-        return self.sections.tables.layers
+        return self.tables.layers
 
     @property
     def linetypes(self) -> 'Table':
-        return self.sections.tables.linetypes
+        return self.tables.linetypes
 
     @property
     def styles(self) -> 'Table':
-        return self.sections.tables.styles
+        return self.tables.styles
 
     @property
     def dimstyles(self) -> 'Table':
-        return self.sections.tables.dimstyles
+        return self.tables.dimstyles
 
     @property
     def ucs(self) -> 'Table':
-        return self.sections.tables.ucs
+        return self.tables.ucs
 
     @property
     def appids(self) -> 'Table':
-        return self.sections.tables.appids
+        return self.tables.appids
 
     @property
     def views(self) -> 'Table':
-        return self.sections.tables.views
+        return self.tables.views
 
     @property
     def block_records(self) -> 'Table':
-        return self.sections.tables.block_records
+        return self.tables.block_records
 
     @property
     def viewports(self) -> 'ViewportTable':
-        return self.sections.tables.viewports
+        return self.tables.viewports
 
     @property
-    def blocks(self) -> 'BlocksSection':
-        return self.sections.blocks
-
-    @property
-    def groups(self) -> 'GroupManager':
-        if self.dxfversion <= 'AC1009':
-            raise DXFVersionError('Groups not supported in DXF version R12.')
-        return self._groups
-
-    @property
-    def materials(self) -> 'MaterialManager':
-        if self.dxfversion <= 'AC1009':
-            raise DXFVersionError('Materials not supported in DXF version R12.')
-        return self._materials
-
-    @property
-    def mleader_styles(self) -> 'MLeaderStyleManager':
-        if self.dxfversion <= 'AC1009':
-            raise DXFVersionError('MLeaderStyles not supported in DXF version R12.')
-        return self._mleader_styles
-
-    @property
-    def mline_styles(self) -> 'MLineStyleManager':
-        if self.dxfversion <= 'AC1009':
-            raise DXFVersionError('MLineStyles not supported in DXF version R12.')
-        return self._mline_styles
+    def plotstyles(self) -> 'Dictionary':
+        return self.rootdict['ACAD_PLOTSTYLENAME']
 
     @property
     def dimension_renderer(self) -> DimensionRenderer:
@@ -194,140 +507,186 @@ class Drawing:
         """
         self._dimension_renderer = renderer
 
-    def modelspace(self) -> 'LayoutType':
+    def modelspace(self) -> 'Layout':
+        """ Returns the modelspace layout, displayed as ``'Model'`` tab in CAD applications, defined by block record
+        named ``'*Model_Space'``.
+        """
         return self.layouts.modelspace()
 
-    def layout(self, name: str = None) -> 'LayoutType':
+    def layout(self, name: str = None) -> 'Layout':
+        """ Returns paperspace layout `name` or returns first layout in tab order if `name` is ``None``. """
         return self.layouts.get(name)
 
+    def active_layout(self) -> 'Layout':
+        """ Returns the active paperspace layout, defined by block record name ``'*Paper_Space'``. """
+        return self.layouts.active_layout()
+
     def layout_names(self) -> Iterable[str]:
+        """ Returns all layout names (modelspace ``'Model'`` included) in arbitrary order. """
         return list(self.layouts.names())
 
-    def delete_layout(self, name):
-        if self.dxfversion > 'AC1009':
-            if name not in self.layouts:
-                raise DXFValueError("Layout '{}' does not exist.".format(name))
-            else:
-                self.layouts.delete(name)
-        else:
-            raise DXFVersionError('delete_layout() not supported for DXF version R12.')
+    def layout_names_in_taborder(self) -> Iterable[str]:
+        """ Returns all layout names (modelspace included, always first name) in tab order. """
+        return list(self.layouts.names_in_taborder())
 
-    def new_layout(self, name, dxfattribs=None):
-        if self.dxfversion > 'AC1009':
-            if name in self.layouts:
-                raise DXFValueError("Layout '{}' already exists.".format(name))
-            else:
-                return self.layouts.new(name, dxfattribs)
-        else:
-            raise DXFVersionError('new_layout() not supported for DXF version R12.')
+    def reset_fingerprint_guid(self):
+        """ Reset fingerprint GUID. """
+        self.header['$FINGERPRINTGUID'] = guid()
 
-    def layouts_and_blocks(self):
+    def reset_version_guid(self):
+        """ Reset version GUID. """
+        self.header['$VERSIONGUID'] = guid()
+
+    @property
+    def acad_compatible(self) -> bool:
+        """ Returns ``True`` if drawing is AutoCAD compatible. """
+        return self._acad_compatible
+
+    def add_acad_incompatibility_message(self, msg: str):
+        """ Add AutoCAD incompatibility message. (internal API) """
+        self._acad_compatible = False
+        if msg not in self._acad_incompatibility_reason:
+            self._acad_incompatibility_reason.add(msg)
+            logger.warning('Drawing is incompatible to AutoCAD, because {}.'.format(msg))
+
+    def query(self, query: str = '*') -> EntityQuery:
         """
-        Iterate over all layouts (mode space and paper space) and all block definitions.
+        Entity query over all layouts and blocks, excluding the OBJECTS section.
 
-        Returns: yields Layout() objects
+        Args:
+            query: query string
+
+        .. seealso::
+
+            :ref:`entity query string` and :ref:`entity queries`
 
         """
-        # DXF R12: model space and paper space layouts not linked into the associated BLOCK entity
-        if self.dxfversion <= 'AC1009':
-            return chain(self.layouts, self.blocks)
-        # DXF R2000+: all layout spaces linked into their associated BLOCK entity
-        else:
-            return iter(self.blocks)
+        return EntityQuery(self.chain_layouts_and_blocks(), query)
 
-    def chain_layouts_and_blocks(self):
+    def groupby(self, dxfattrib="", key=None) -> dict:
+        """
+        Groups DXF entities of all layouts and blocks (excluding the OBJECTS section) by a DXF attribute or a key
+        function.
+
+        Args:
+            dxfattrib: grouping DXF attribute like ``'layer'``
+            key: key function, which accepts a :class:`DXFEntity` as argument and returns a hashable grouping key
+                 or ``None`` to ignore this entity.
+
+        .. seealso::
+
+            :func:`~ezdxf.groupby.groupby` documentation
+
+        """
+        return groupby(self.chain_layouts_and_blocks(), dxfattrib, key)
+
+    def chain_layouts_and_blocks(self) -> Iterable['DXFEntity']:
         """
         Chain entity spaces of all layouts and blocks. Yields an iterator for all entities in all layouts and blocks.
-
-        Returns: yields all entities as DXFEntity() objects
 
         """
         layouts = list(self.layouts_and_blocks())
         return chain.from_iterable(layouts)
 
-    def get_active_layout_key(self):
-        if self.dxfversion > 'AC1009':
-            try:
-                active_layout_block_record = self.block_records.get('*Paper_Space')  # block names are case insensitive
-                return active_layout_block_record.dxf.handle
-            except DXFValueError:
-                return None
+    def layouts_and_blocks(self) -> Iterable['LayoutType']:
+        """
+        Iterate over all layouts (modelspace and paperspace) and all block definitions.
+
+        """
+        return iter(self.blocks)
+
+    def delete_layout(self, name: str) -> None:
+        """
+        Delete paper space layout `name` and all entities owned by this layout. Available only for DXF R2000 or later,
+        DXF R12 supports only one paperspace and it can't be deleted.
+
+        """
+        if name not in self.layouts:
+            raise DXFValueError("Layout '{}' does not exist.".format(name))
         else:
-            return self.layout().layout_key  # AC1009 supports just one layout and this is the active one
+            self.layouts.delete(name)
 
-    def get_active_entity_space_layout_keys(self):
-        layout_keys = [self.modelspace().layout_key]
-        active_layout_key = self.get_active_layout_key()
-        if active_layout_key is not None:
-            layout_keys.append(active_layout_key)
-        return layout_keys
-
-    @property
-    def entities(self):
-        return self.sections.entities
-
-    @property
-    def objects(self):
-        return self.sections.objects
-
-    def get_dxf_entity(self, handle):
+    def new_layout(self, name, dxfattribs=None) -> 'Layout':
         """
-        Get entity by *handle* from entity database.
+        Create a new paperspace layout `name`. Returns a :class:`~ezdxf.layouts.Layout` object.
+        DXF R12 (AC1009) supports only one paperspace layout, only the active paperspace layout is saved, other layouts
+        are dismissed.
 
-        Low level access to DXF entities database. Raises *KeyError* if handle don't exists.
-        Returns DXFEntity() or inherited.
+        Args:
+            name: unique layout name
+            dxfattribs: additional DXF attributes for the :class:`~ezdxf.entities.layout.DXFLayout` entity
 
-        If you just need the raw DXF tags use::
+        Raises:
+            DXFValueError: :class:`~ezdxf.layouts.Layout` `name` already exist
 
-            tags = Drawing.entitydb[handle]  # raises KeyError, if handle don't exist
-            tags = Drawing.entitydb.get(handle)  # returns a default value, if handle don't exist (None by default)
-
-        type of tags: ExtendedTags()
         """
-        return self.dxffactory.wrap_handle(handle)
+        if name in self.layouts:
+            raise DXFValueError("Layout '{}' already exists.".format(name))
+        else:
+            return self.layouts.new(name, dxfattribs)
 
-    def add_image_def(self, filename, size_in_pixel, name=None):
+    def acquire_arrow(self, name: str):
+        """
+        For standard AutoCAD and ezdxf arrows create block definitions if required, otherwise check if block `name`
+        exist. (internal API)
+
+        """
+        from ezdxf.render.arrows import ARROWS
+        if ARROWS.is_acad_arrow(name) or ARROWS.is_ezdxf_arrow(name):
+            ARROWS.create_block(self.blocks, name)
+        elif name not in self.blocks:
+            raise DXFValueError('Arrow block "{}" does not exist.'.format(name))
+
+    def add_image_def(self, filename: str, size_in_pixel: Tuple[int, int], name=None):
         """
         Add an image definition to the objects section.
 
-        For AutoCAD works best with absolute image paths but not good, you have to update external references manually
-        in AutoCAD, which is not possible in TrueView. If you drawing units differ from 1 meter, you also have to use:
-        Drawing.set_raster_variables().
+        Add an :class:`~ezdxf.entities.image.ImageDef` entity to the drawing (objects section). `filename` is the image
+        file name as relative or absolute path and `size_in_pixel` is the image size in pixel as (x, y) tuple. To avoid
+        dependencies to external packages, `ezdxf` can not determine the image size by itself. Returns a
+        :class:`~ezdxf.entities.image.ImageDef` entity which is needed to create an image reference. `name` is the
+        internal image name, if set to ``None``, name is auto-generated.
+
+        Absolute image paths works best for AutoCAD but not really good, you have to update external references manually
+        in AutoCAD, which is not possible in TrueView. If the drawing units differ from 1 meter, you also have to use:
+        :meth:`set_raster_variables`.
 
         Args:
             filename: image file name (absolute path works best for AutoCAD)
             size_in_pixel: image size in pixel as (x, y) tuple
             name: image name for internal use, None for using filename as name (best for AutoCAD)
 
-        """
-        if self.dxfversion < 'AC1015':
-            raise DXFVersionError('The IMAGE entity needs at least DXF version R2000 or later.')
+        .. seealso::
 
+            :ref:`tut_image`
+
+        """
         if 'ACAD_IMAGE_VARS' not in self.rootdict:
-            self.objects.set_raster_variables(frame=0, quality=1, units=3)
+            self.objects.set_raster_variables(frame=0, quality=1, units='m')
         if name is None:
             name = filename
         return self.objects.add_image_def(filename, size_in_pixel, name)
 
-    def set_raster_variables(self, frame=0, quality=1, units='m'):
+    def set_raster_variables(self, frame: int = 0, quality: int = 1, units: str = 'm'):
         """
         Set raster variables.
 
         Args:
-            frame: 0 = do not show image frame; 1 = show image frame
-            quality: 0 = draft; 1 = high
-            units: units for inserting images. This is what one drawing unit is equal to for the purpose of inserting
-                   and scaling images with an associated resolution
+            frame: ``0`` = do not show image frame; ``1`` = show image frame
+            quality: ``0`` = draft; ``1`` = high
+            units: units for inserting images. This defines the real world unit for one drawing unit for the purpose of
+                   inserting and scaling images with an associated resolution.
 
-                   'mm' = Millimeter
-                   'cm' = Centimeter
-                   'm' = Meter (ezdxf default)
-                   'km' = Kilometer
-                   'in' = Inch
-                   'ft' = Foot
-                   'yd' = Yard
-                   'mi' = Mile
-                   everything else is None
+                   ===== ===========================
+                   mm    Millimeter
+                   cm    Centimeter
+                   m     Meter (ezdxf default)
+                   km    Kilometer
+                   in    Inch
+                   ft    Foot
+                   yd    Yard
+                   mi    Mile
+                   ===== ===========================
 
         """
         self.objects.set_raster_variables(frame=frame, quality=quality, units=units)
@@ -337,31 +696,34 @@ class Drawing:
         Set wipeout variables.
 
         Args:
-            frame: 0 = do not show image frame; 1 = show image frame
+            frame: ``0`` = do not show image frame; ``1`` = show image frame
 
         """
         self.objects.set_wipeout_variables(frame=frame)
 
-    def add_underlay_def(self, filename, format='ext', name=None):
+    def add_underlay_def(self, filename: str, format: str = 'ext', name: str = None):
         """
-        Add an underlay definition to the objects section.
+        Add an :class:`~ezdxf.entities.underlay.UnderlayDef` entity to the drawing (OBJECTS section).
+        `filename` is the underlay file name as relative or absolute path and `format` as string (pdf, dwf, dgn).
+        The underlay definition is required to create an underlay reference.
 
         Args:
-            format: file format as string pdf|dwf|dgn or ext=get format from filename extension
-            name: underlay name, None for an auto-generated name
+            filename: underlay file name
+            format: file format as string ``'pdf'|'dwf'|'dgn'`` or ``'ext'`` for getting file format from filename extension
+            name: pdf format = page number to display; dgn format = ``'default'``; dwf: ????
+
+        .. seealso::
+
+            :ref:`tut_underlay`
 
         """
-        if self.dxfversion < 'AC1015':
-            raise DXFVersionError('The UNDERLAY entity needs at least DXF version R2000 or later.')
         if format == 'ext':
             format = filename[-3:]
         return self.objects.add_underlay_def(filename, format, name)
 
-    def add_xref_def(self, filename, name, flags=BLK_XREF | BLK_EXTERNAL):
+    def add_xref_def(self, filename: str, name: str, flags: int = BLK_XREF | BLK_EXTERNAL):
         """
         Add an external reference (xref) definition to the blocks section.
-
-        Add xref to a layout by `layout.add_blockref(name, insert=(0, 0))`.
 
         Args:
             filename: external reference filename
@@ -374,111 +736,13 @@ class Drawing:
             'xref_path': filename
         })
 
-    def _get_encoding(self):
-        codepage = self.header.get('$DWGCODEPAGE', 'ANSI_1252')
-        return toencoding(codepage)
-
-    @staticmethod
-    def new(dxfversion='AC1009'):
-        from .lldxf.const import versions_supported_by_new, acad_release_to_dxf_version
-
-        dxfversion = dxfversion.upper()
-        dxfversion = acad_release_to_dxf_version.get(dxfversion, dxfversion)  # translates 'R12' -> 'AC1009'
-        if dxfversion not in versions_supported_by_new:
-            raise DXFVersionError("Can not create DXF drawings, unsupported DXF version '{}'.".format(dxfversion))
-        finder = TemplateLoader(options.template_dir)
-        stream = finder.getstream(dxfversion.upper())
-        try:
-            dwg = Drawing.read(stream)
-        finally:
-            stream.close()
-        dwg._setup_metadata()
-        return dwg
-
-    def _setup_metadata(self):
-        self.header['$TDCREATE'] = juliandate(datetime.now())
-
-    @staticmethod
-    def read(stream: TextIO, legacy_mode: bool = False, dxfversion: str = None) -> 'Drawing':
-        """ Open an existing drawing. """
-        from .lldxf.tagger import low_level_tagger, tag_compiler
-
-        tagger = low_level_tagger(stream)
-        if legacy_mode:
-            if dxfversion is not None and dxfversion <= 'AC1009':
-                tagger = repair.filter_subclass_marker(tagger)
-            tagger = repair.tag_reorder_layer(tagger)
-        tagreader = tag_compiler(tagger)
-        return Drawing(tagreader)
-
-    def saveas(self, filename, encoding=None):
-        self.filename = filename
-        self.save(encoding=encoding)
-
-    def save(self, encoding=None):
-        # DXF R12, R2000, R2004 - ASCII encoding
-        # DXF R2007 and newer - UTF-8 encoding
-        if encoding is None:
-            enc = 'utf-8' if self.dxfversion >= 'AC1021' else self.encoding
-        else:  # override default encoding, for applications that handles encoding different than AutoCAD
-            enc = encoding
-        # in ASCII mode, unknown characters will be escaped as \U+nnnn unicode characters.
-        with io.open(self.filename, mode='wt', encoding=enc, errors='dxfreplace') as fp:
-            self.write(fp)
-
-    def write(self, stream):
-        from .lldxf.tagwriter import TagWriter
-        if self.dxfversion == 'AC1009':
-            handles = bool(self.header['$HANDLING'])
-        else:
-            handles = True
-        if self.dxfversion > 'AC1009':
-            self._register_required_classes()
-            if self.dxfversion < 'AC1018':
-                # remove unsupported group code 91
-                repair.fix_classes(self)
-
-        self._create_appids()
-        self._update_metadata()
-        tagwriter = TagWriter(stream, write_handles=handles)
-        self.sections.write(tagwriter)
-
-    def query(self, query='*'):
-        """
-        Entity query over all layouts and blocks.
-
-        Excluding the OBJECTS section!
-
-        Args:
-            query: query string
-
-        Returns: EntityQuery() container
-
-        """
-        return EntityQuery(self.chain_layouts_and_blocks(), query)
-
-    def groupby(self, dxfattrib="", key=None):
-        """
-        Groups DXF entities of all layouts and blocks by an DXF attribute or a key function.
-
-        Excluding the OBJECTS section!
-
-        Args:
-            dxfattrib: grouping DXF attribute like 'layer'
-            key: key function, which accepts a DXFEntity as argument, returns grouping key of this entity or None for ignore
-                 this object. Reason for ignoring: a queried DXF attribute is not supported by this entity
-
-        Returns: dict
-
-        """
-        return groupby(self.chain_layouts_and_blocks(), dxfattrib, key)
-
-    def cleanup(self, groups=True):
+    def cleanup(self, groups=True) -> None:
         """
         Cleanup drawing. Call it before saving the drawing but only if necessary, the process could take a while.
 
         Args:
-            groups (bool): removes deleted and invalid entities from groups
+            groups: removes deleted and invalid entities from groups
+
         """
         if groups and self.groups is not None:
             self.groups.cleanup()
@@ -494,14 +758,14 @@ class Drawing:
         from ezdxf.audit.auditor import Auditor
         return Auditor(self)
 
-    def validate(self, print_report=True):
+    def validate(self, print_report=True) -> bool:
         """
         Simple way to run an audit process.
 
         Args:
             print_report: print report to stdout
 
-        Returns: True if no errors occurred else False
+        Returns: ``True`` if no errors occurred
 
         """
         auditor = self.auditor()
@@ -512,38 +776,3 @@ class Drawing:
             return False
         else:
             return True
-
-    def update_class_instance_counters(self):
-        if 'classes' in self.sections:
-            self._register_required_classes()
-            self.sections.classes.update_instance_counters()
-
-    def _register_required_classes(self):
-        register = self.sections.classes.register
-        for dxftype in self.tracker.dxftypes:
-            cls = self.dxffactory.get_wrapper_class(dxftype)
-            if cls.CLASS is not None:
-                register(cls.CLASS)
-
-    def _update_metadata(self):
-        now = datetime.now()
-        self.header['$TDUPDATE'] = juliandate(now)
-        self.header['$HANDSEED'] = str(self.entitydb.handles)
-        self.header['$DWGCODEPAGE'] = tocodepage(self.encoding)
-        self.reset_versionguid()
-
-    def _create_appids(self):
-        def create_appid_if_not_exist(name, flags=0):
-            if name not in self.appids:
-                self.appids.new(name, {'flags': flags})
-
-        if 'HATCH' in self.tracker.dxftypes:
-            create_appid_if_not_exist('HATCHBACKGROUNDCOLOR', 0)
-
-    def reset_fingerprintguid(self):
-        if self.dxfversion > 'AC1009':
-            self.header['$FINGERPRINTGUID'] = guid()
-
-    def reset_versionguid(self):
-        if self.dxfversion > 'AC1009':
-            self.header['$VERSIONGUID'] = guid()

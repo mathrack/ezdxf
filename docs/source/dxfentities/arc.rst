@@ -1,31 +1,41 @@
 Arc
 ===
 
-.. class:: Arc(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-An arc at location *center* and *radius* from *start_angle* to *end_angle*, *dxftype* is ARC. The arc goes from
-*start_angle* to *end_angle* in *counter clockwise* direction. Create arcs in layouts and blocks by factory function
-:meth:`~ezdxf.modern.layouts.Layout.add_arc`.
+ARC (`DXF Reference`_) center at location :attr:`dxf.center` and radius of :attr:`dxf.radius` from :attr:`dxf.start_angle` to
+:attr:`dxf.end_angle`. ARC goes always from :attr:`dxf.start_angle` to :attr:`dxf.end_angle` in counter clockwise
+orientation around the :attr:`dxf.extrusion` vector, which is ``(0, 0, 1)`` by default and the usual case for 2D
+arcs.
 
-DXF Attributes for Arc
-----------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Circle`
+DXF type                 ``'ARC'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_arc`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+======================== ==========================================
 
-:ref:`Common DXF attributes for DXF R12`
+.. warning::
 
-:ref:`Common DXF attributes for DXF R13 or later`
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-.. attribute:: Arc.dxf.center
+.. class:: Arc
 
-    center point of arc (2D/3D Point in :ref:`OCS`)
+    .. attribute:: dxf.center
 
-.. attribute:: Arc.dxf.radius
+        Center point of arc (2D/3D Point in :ref:`OCS`)
 
-    radius of arc (float)
+    .. attribute:: dxf.radius
 
-.. attribute:: Arc.dxf.start_angle
+        Radius of arc (float)
 
-    start angle in degrees (float)
+    .. attribute:: dxf.start_angle
 
-.. attribute:: Arc.dxf.end_angle
+        Start angle in degrees (float)
 
-    end angle in degrees (float)
+    .. attribute:: dxf.end_angle
+
+        End angle in degrees (float)
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-0B14D8F1-0EBA-44BF-9108-57D8CE614BC8

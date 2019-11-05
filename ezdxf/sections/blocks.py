@@ -1,18 +1,35 @@
-# Purpose: blocks section
-# Created: 14.03.2011
-# Copyright (c) 2011-2018, Manfred Moitzi
+# Copyright (c) 2011-2019, Manfred Moitzi
 # License: MIT License
-from typing import TYPE_CHECKING, Iterable, Union, Iterator, Sequence
+from typing import TYPE_CHECKING, Iterable, Union, Sequence, List, cast
 import logging
 
-from ezdxf.lldxf.const import DXFStructureError, DXFAttributeError, DXFBlockInUseError
+from ezdxf.lldxf.const import DXFStructureError, DXFAttributeError, DXFBlockInUseError, DXFTableEntryError, DXFKeyError
 from ezdxf.lldxf import const
-from ezdxf.lldxf.extendedtags import get_xtags_linker
+from ezdxf.entities.dxfgfx import entity_linker
+from ezdxf.layouts.blocklayout import BlockLayout
+from ezdxf.render.arrows import ARROWS
 
 logger = logging.getLogger('ezdxf')
 
 if TYPE_CHECKING:
-    from ezdxf.eztypes import Drawing, BlockLayout, ExtendedTags, DXFFactoryType, EntityDB, TagWriter
+    from ezdxf.eztypes import TagWriter, Drawing, EntityDB, DXFEntity, DXFTagStorage, Table
+    from ezdxf.eztypes import EntityFactory, BlockRecord, Block, EndBlk
+
+
+def is_special_block(name: str) -> bool:
+    name = name.upper()
+    # Anonymous dimension, groups and table blocks do not have explicit references by INSERT entity
+    if name.startswith('*D') or name.startswith('*A') or name.startswith('*T'):
+        return True
+
+    # Arrow blocks maybe used in LEADER override without INSERT reference.
+    if ARROWS.is_ezdxf_arrow(name):
+        return True
+    if name.startswith('_'):
+        if ARROWS.is_acad_arrow(ARROWS.arrow_name(name)):
+            return True
+
+    return False
 
 
 class BlocksSection:
@@ -21,19 +38,17 @@ class BlocksSection:
     like AutoCAD.
 
     """
-    name = 'BLOCKS'
 
-    def __init__(self, entities: Iterable['ExtendedTags'], drawing: 'Drawing'):
-        # Mapping of BlockLayouts, for dict() order of blocks is random,
-        # if turns out later, that blocks order is important: use an OrderedDict().
-        self._block_layouts = dict()
-        self.drawing = drawing
+    def __init__(self, doc: 'Drawing' = None, entities: List['DXFEntity'] = None):
+        # BlockLayouts stored as block_layout attribute in the BlockRecord object
+        self.doc = doc
         if entities is not None:
-            self._build(iter(entities))
+            self.load(entities)
+        self._reconstruct_orphaned_block_records()
         self._anonymous_block_counter = 0
 
     def __len__(self):
-        return len(self._block_layouts)
+        return len(self.block_records)
 
     @staticmethod
     def key(entity: Union[str, 'BlockLayout']) -> str:
@@ -42,101 +57,160 @@ class BlocksSection:
         return entity.lower()  # block key is lower case
 
     @property
-    def entitydb(self) -> 'EntityDB':
-        return self.drawing.entitydb
+    def block_records(self) -> 'Table':
+        return self.doc.block_records
 
     @property
-    def dxffactory(self) -> 'DXFFactoryType':
-        return self.drawing.dxffactory
+    def entitydb(self) -> 'EntityDB':
+        return self.doc.entitydb
 
-    def _build(self, entities: Iterator['ExtendedTags']) -> None:
-        def build_block_layout(handles: Sequence[str]) -> 'BlockLayout':
-            block = self.dxffactory.new_block_layout(
-                block_handle=handles[0],
-                endblk_handle=handles[-1],
-            )
-            for handle in handles[1:-1]:
-                block.add_handle(handle)
-            return block
+    @property
+    def dxffactory(self) -> 'EntityFactory':
+        return self.doc.dxffactory
 
-        def link_entities() -> Iterable['ExtendedTags']:
-            linked_tags = get_xtags_linker()
+    def load(self, entities: List['DXFEntity']) -> None:
+        """
+        Load DXF entities into BlockLayouts. `entities` is a stream of entity tags, separated by BLOCK and ENDBLK
+        entities into block layouts.
+
+        """
+
+        def load_block_record(block_entities: Sequence['DXFEntity']) -> 'BlockRecord':
+            block = cast('Block', block_entities[0])
+            endblk = cast('EndBlk', block_entities[-1])
+
+            try:
+                block_record = cast('BlockRecord', block_records.get(block.dxf.name))
+            except DXFTableEntryError:  # special case DXF R12 - not block record exists
+                block_record = cast('BlockRecord', block_records.new(block.dxf.name, dxfattribs={'scale': 0}))
+
+            # block_record stores all the information about a block definition
+            block_record.set_block(block, endblk)
+            for entity in block_entities[1:-1]:
+                block_record.add_entity(entity)
+                # block_record.add_entity(entity)  # add to block_record?
+            return block_record
+
+        def link_entities() -> Iterable['DXFEntity']:
+            linked = entity_linker()
             for entity in entities:
-                if not linked_tags(entity):  # don't store linked entities (VERTEX, ATTRIB, SEQEND) in block layout
+                if not linked(entity):  # don't store linked entities (VERTEX, ATTRIB, SEQEND) in block layout
                     yield entity
 
-        section_head = next(entities)
-        if section_head[0] != (0, 'SECTION') or section_head[1] != (2, 'BLOCKS'):
+        block_records = self.block_records
+        section_head = entities[0]  # type: DXFTagStorage
+        if section_head.dxftype() != 'SECTION' or section_head.base_class[1] != (2, 'BLOCKS'):
             raise DXFStructureError("Critical structure error in BLOCKS section.")
+        del entities[0]  # remove SECTION entity
+        block_entities = []
+        for entity in link_entities():
+            block_entities.append(entity)
+            if entity.dxftype() == 'ENDBLK':
+                block_record = load_block_record(block_entities)
+                self.add(block_record)
+                block_entities = []
 
-        handles = []
-        for xtags in link_entities():
-            handles.append(xtags.get_handle())
-            if xtags.dxftype() == 'ENDBLK':
-                block_layout = build_block_layout(handles)
-                try:
-                    name = block_layout.name
-                except DXFAttributeError:
-                    raise
-                if block_layout.name in self:
-                    logger.warning(
-                        'Warning! Multiple block definitions with name "{}", replacing previous definition'.format(
-                            block_layout.name))
-                self.add(block_layout)
-                handles = []
-
-    def add(self, block_layout: 'BlockLayout') -> None:
+    def _reconstruct_orphaned_block_records(self):
         """
-        Add or replace a block object.
-
-        Args:
-            block_layout: BlockLayout() object
+        Find BLOCK_RECORD entries without block definition in the blocks section and create block definitions for this
+        orphaned block records.
 
         """
-        self._block_layouts[self.key(block_layout.name)] = block_layout
+        for block_record in self.block_records:  # type: BlockRecord
+            if block_record.block is None:
+                block = self.doc.dxffactory.create_db_entry('BLOCK', dxfattribs={
+                    'name': block_record.dxf.name,
+                    'name2': block_record.dxf.name,
+                    'base_point': (0, 0, 0),
+                })
+                endblk = self.doc.dxffactory.create_db_entry('ENDBLK', dxfattribs={})
+                block_record.set_block(block, endblk)
+                self.add(block_record)
+
+    def add(self, block_record: 'BlockRecord') -> 'BlockLayout':
+        """ Add or replace a block layout object defined by its block record. (internal API)
+        """
+        block_layout = BlockLayout(block_record)
+        block_record.block_layout = block_layout
+        assert self.block_records.has_entry(block_record.dxf.name)
+        return block_layout
 
     def __iter__(self) -> Iterable['BlockLayout']:
-        return iter(self._block_layouts.values())
+        """ Iterable of all :class:`~ezdxf.layouts.BlockLayout` objects. """
+        return (block_record.block_layout for block_record in self.block_records)
 
     def __contains__(self, name: str) -> bool:
-        return self.key(name) in self._block_layouts
+        """ Returns ``True`` if :class:`~ezdxf.layouts.BlockLayout` `name` exist. """
+        return self.block_records.has_entry(name)
 
     def __getitem__(self, name: str) -> 'BlockLayout':
-        return self._block_layouts[self.key(name)]
+        """ Returns :class:`~ezdxf.layouts.BlockLayout` `name`, raises :class:`DXFKeyError` if `name` not exist. """
+        try:
+            block_record = cast('BlockRecord', self.block_records.get(name))
+            return block_record.block_layout
+        except DXFTableEntryError:
+            raise DXFKeyError(name)
 
     def __delitem__(self, name: str) -> None:
-        del self._block_layouts[self.key(name)]
+        """ Deletes :class:`~ezdxf.layouts.BlockLayout` `name` and all of its content, raises
+        :class:`DXFKeyError` if `name` not exist.
+        """
+        if name in self:
+            self.block_records.remove(name)
+        else:
+            raise DXFKeyError(name)
 
     def get(self, name: str, default=None) -> 'BlockLayout':
+        """ Returns :class:`~ezdxf.layouts.BlockLayout` `name`, returns `default` if `name` not exist. """
         try:
             return self.__getitem__(name)
-        except KeyError:  # internal exception
+        except DXFKeyError:
             return default
 
-    def new(self, name: str, base_point: Sequence[float] = (0, 0), dxfattribs: dict = None) -> 'BlockLayout':
+    def get_block_layout_by_handle(self, block_record_handle: str) -> 'BlockLayout':
+        """ Returns a block layout by block record handle. (internal API)
         """
-        Create a new named block.
+        block_record = self.doc.entitydb[block_record_handle]  # type: BlockRecord
+        return block_record.block_layout
 
+    def new(self, name: str, base_point: Sequence[float] = (0, 0), dxfattribs: dict = None) -> 'BlockLayout':
+        """ Create and add a new :class:`~ezdxf.layouts.BlockLayout`, `name` is the BLOCK name, `base_point` is the
+        insertion point of the BLOCK.
         """
+        block_record = self.doc.block_records.new(name)  # type: BlockRecord
+
         dxfattribs = dxfattribs or {}
+        dxfattribs['owner'] = block_record.dxf.handle
         dxfattribs['name'] = name
         dxfattribs['name2'] = name
         dxfattribs['base_point'] = base_point
-        head = self.dxffactory.create_db_entry('BLOCK', dxfattribs)
-        tail = self.dxffactory.create_db_entry('ENDBLK', {})
-        block_layout = self.dxffactory.new_block_layout(head.dxf.handle, tail.dxf.handle)
-        self.dxffactory.create_block_entry_in_block_records_table(block_layout)
-        self.add(block_layout)
-        return block_layout
+        head = self.dxffactory.create_db_entry('BLOCK', dxfattribs)  # type: Block
+        tail = self.dxffactory.create_db_entry('ENDBLK', {'owner': block_record.dxf.handle})  # type: EndBlk
+        block_record.set_block(head, tail)
+        return self.add(block_record)
 
     def new_anonymous_block(self, type_char: str = 'U', base_point: Sequence[float] = (0, 0)) -> 'BlockLayout':
+        """ Create and add a new anonymous :class:`~ezdxf.layouts.BlockLayout`, `type_char` is the BLOCK type,
+        `base_point` is the insertion point of the BLOCK.
+
+            ========= ==========
+            type_char Anonymous Block Type
+            ========= ==========
+            ``'U'``   ``'*U###'`` anonymous BLOCK
+            ``'E'``   ``'*E###'`` anonymous non-uniformly scaled BLOCK
+            ``'X'``   ``'*X###'`` anonymous HATCH graphic
+            ``'D'``   ``'*D###'`` anonymous DIMENSION graphic
+            ``'A'``   ``'*A###'`` anonymous GROUP
+            ``'T'``   ``'*T###'`` anonymous block for ACAD_TABLE content
+            ========= ==========
+
+        """
         blockname = self.anonymous_blockname(type_char)
         block = self.new(blockname, base_point, {'flags': const.BLK_ANONYMOUS})
         return block
 
     def anonymous_blockname(self, type_char: str) -> str:
-        """
-        Create name for an anonymous block.
+        """ Create name for an anonymous block. (internal API)
 
         Args:
             type_char: letter
@@ -156,85 +230,64 @@ class BlocksSection:
                 return blockname
 
     def rename_block(self, old_name: str, new_name: str) -> None:
-        """
-        Renames the block and the associated block record.
-
-        """
-        block_layout = self.get(old_name)  # block key is lower case
-        block_layout.name = new_name
-
-        if self.drawing.dxfversion > 'AC1009':
-            block_record = self.drawing.block_records.get(old_name)
-            block_record.dxf.name = new_name
-        self.__delitem__(old_name)
-        self.add(block_layout)  # add new dict entry
+        """ Rename :class:`~ezdxf.layouts.BlockLayout` `old_name` to `new_name` """
+        block_record = self.block_records.get(old_name)  # type: BlockRecord
+        block_record.rename(new_name)
+        self.block_records.replace(old_name, block_record)
+        self.add(block_record)
 
     def delete_block(self, name: str, safe: bool = True) -> None:
         """
-        Delete block. If save is True, check if block is still referenced.
+        Delete block. If `save` is ``True``, check if block is still referenced.
 
         Args:
             name: block name (case insensitive)
-            safe: check if block is still referenced
+            safe: check if block is still referenced or special block without explicit references
 
         Raises:
             DXFKeyError() if block not exists
-            DXFValueError() if block is still referenced, and save is True
+            DXFBlockInUseError() if block is still referenced, and save is True
 
         """
         if safe:
-            block_refs = self.drawing.query("INSERT[name=='{}']i".format(name))  # ignore case
+            if is_special_block(name):
+                raise DXFBlockInUseError('Special block "{}" maybe used without explicit INSERT entity.'.format(name))
+
+            block_refs = self.doc.query("INSERT[name=='{}']i".format(name))  # ignore case
             if len(block_refs):
                 raise DXFBlockInUseError(
                     'Block "{}" is still in use and can not deleted. (Hint: block name is case insensitive!)'.format(
                         name))
-        block_layout = self[name]
-        block_layout.destroy()
         self.__delitem__(name)
 
     def delete_all_blocks(self, safe: bool = True) -> None:
         """
-        Delete all blocks except layout blocks (model space or paper space).
+        Delete all blocks except layout blocks (modelspace or paperspace). In safe mode, protected blocks are ignored
+        silently.
 
         Args:
-            safe: check if block is still referenced and ignore them if so
+            safe: check if block is still referenced or special block without explicit references
 
         """
         if safe:
             # block names are case insensitive
-            references = set(entity.dxf.name.lower() for entity in self.drawing.query('INSERT'))
+            references = set(entity.dxf.name.lower() for entity in self.doc.query('INSERT'))
 
         def is_save(name: str) -> bool:
+            if safe and is_special_block(name):
+                return False
             return name.lower() not in references if safe else True
 
         # do not delete blocks defined for layouts
-        if self.drawing.dxfversion > 'AC1009':
-            layout_keys = set(layout.layout_key for layout in self.drawing.layouts)
-            for block in list(self):
-                name = block.name
-                if block.block_record_handle not in layout_keys and is_save(name):
-                    # safety check is already done
-                    self.delete_block(name, safe=False)
-        else:
-            for block_name in list(self._block_layouts.keys()):
-                if block_name not in ('$model_space', '$paper_space') and is_save(block_name):
-                    # safety check is already done
-                    self.delete_block(block_name, safe=False)
+        layout_keys = set(layout.layout_key for layout in self.doc.layouts)
+        for block in list(self):
+            name = block.name
+            if block.block_record_handle not in layout_keys and is_save(name):
+                # safety check is already done
+                self.delete_block(name, safe=False)
 
-    def write(self, tagwriter: 'TagWriter') -> None:
+    def export_dxf(self, tagwriter: 'TagWriter') -> None:
         tagwriter.write_str("  0\nSECTION\n  2\nBLOCKS\n")
-        for block in self._block_layouts.values():
-            block.write(tagwriter)
+        for block_record in self.block_records:  # type: BlockRecord
+            block_record.export_block_definition(tagwriter)
         tagwriter.write_tag2(0, "ENDSEC")
-
-    def new_layout_block(self) -> 'BlockLayout':
-
-        def block_name(_count):
-            return "*Paper_Space%d" % _count
-
-        count = 0
-        while block_name(count) in self:
-            count += 1
-
-        block_layout = self.new(block_name(count))
-        return block_layout

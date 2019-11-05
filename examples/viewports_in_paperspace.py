@@ -1,5 +1,3 @@
-# Purpose: viewports in paperspace
-# Created: 11.10.2015
 # Copyright (c) 2015, Manfred Moitzi
 # License: MIT License
 import math
@@ -80,21 +78,8 @@ def create_viewports(paperspace, dxfversion):
     }).set_pos((16, 14), align='CENTER')
 
     vp = paperspace.add_viewport(center=(16, 10), size=(4, 4), view_center_point=(0, 0), view_height=30)
-    if dxfversion == 'AC1009':
-        # only DXF R12 (AC1009): view_target_point and view_direction_vector (as many other viewport attributes) are not
-        # usual DXF attributes, they are stored as extended DXF tags and therefore need a special treatment
-        with vp.edit_data() as vp_data:
-            vp_data.view_target_point = (40, 40, 0)
-            # view_direction_vector determines the view direction,
-            # and it just a VECTOR, the view direction is the location
-            # of view_direction_vector to (0, 0, 0)
-            vp_data.view_direction_vector = (-1, -1, 1)
-            # now we have a view plane (viewport) with its origin (0, 0) in
-            # the view target point and view_center_point shifts
-            # the center of the viewport
-    else:  # starting at DXF version AC1015 (R2000) all viewport attributes are usual DXF attributes.
-        vp.dxf.view_target_point = (40, 40, 0)
-        vp.dxf.view_direction_vector = (-1, -1, 1)
+    vp.dxf.view_target_point = (40, 40, 0)
+    vp.dxf.view_direction_vector = (-1, -1, 1)
 
     paperspace.add_text("Viewport to 3D Mesh", dxfattribs={
         'height': 0.18,
@@ -104,23 +89,23 @@ def create_viewports(paperspace, dxfversion):
 
 def main():
     def make(dxfversion, filename):
-        dwg = ezdxf.new(dxfversion)
-        if 'VIEWPORTS' not in dwg.layers:
-            vp_layer = dwg.layers.new('VIEWPORTS')
+        doc = ezdxf.new(dxfversion)
+        if 'VIEWPORTS' not in doc.layers:
+            vp_layer = doc.layers.new('VIEWPORTS')
         else:
-            vp_layer = dwg.layers.get('VIEWPORTS')
+            vp_layer = doc.layers.get('VIEWPORTS')
         # switch viewport layer off to hide the viewport border lines
         vp_layer.off()
 
-        create_2d_modelspace_content(dwg.modelspace())
-        create_3d_modelspace_content(dwg.modelspace())
+        create_2d_modelspace_content(doc.modelspace())
+        create_3d_modelspace_content(doc.modelspace())
         # IMPORTANT: DXF R12 supports only one paper space aka layout, every layout name returns the same layout
-        layout = dwg.layout('Layout1')  # default layout
+        layout = doc.layout('Layout1')  # default layout
         layout.page_setup(size=(22, 17), margins=(1, 1, 1, 1), units='inch')
         create_viewports(layout, dxfversion)
 
         try:
-            dwg.saveas(filename)
+            doc.saveas(filename)
         except IOError:
             print("Can't write: '%s'" % filename)
 

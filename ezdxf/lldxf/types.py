@@ -1,19 +1,32 @@
 # Created: 30.04.2014
 # Copyright (c) 2014-2018, Manfred Moitzi
 # License: MIT License
+"""
+
+DXF Types
+=========
+
+Required DXF tag interface:
+
+    - property :attr:`code`: group code as int
+    - property :attr:`value`: tag value of unspecific type
+    - :meth:`dxfstr`: returns the DXF string
+    - :meth:`clone`: returns a deep copy of tag
+
+"""
 from typing import Union, Tuple, Iterable, Callable, Sequence, Any, TYPE_CHECKING
 from array import array
 from itertools import chain
 import reprlib
+from ezdxf.math.vector import Vector
 
-from ezdxf.tools import encode_hex_code_string_to_bytes, byte_to_hexstr
+from ezdxf.tools.binarydata import hexstr_to_bytes, int_to_hexstr
 
 if TYPE_CHECKING:
     from ezdxf.eztypes import TagValue
 
 TAG_STRING_FORMAT = '%3d\n%s\n'
-POINT_CODES = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 110, 111, 112, 210, 1010, 1011, 1012, 1013, 1014, 1015, 1016,
-               1017, 1018, 1019, }
+POINT_CODES = {10, 11, 12, 13, 14, 15, 16, 17, 18, 110, 111, 112, 210, 211, 212, 213, 1010, 1011, 1012, 1013}
 
 GENERAL_MARKER = 0
 SUBCLASS_MARKER = 100
@@ -30,7 +43,22 @@ BINARAY_DATA = {310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 1004}
 EMBEDDED_OBJ_STR = 'Embedded Object'
 
 
+def handle_code(dxftype: str) -> int:
+    return 105 if dxftype == 'DIMSTYLE' else 5
+
+
 class DXFTag:
+    """
+    Immutable DXFTag class - immutable by design, not implementation - don't change it.
+
+    Args:
+        code: group code as int
+        value: tag value, type depends on group code
+
+    :ivar code: group code as int (do not change)
+    :ivar value: tag value (read-only property)
+
+    """
     __slots__ = ('code', '_value')
 
     def __init__(self, code: int, value: 'TagValue'):
@@ -38,34 +66,52 @@ class DXFTag:
         self._value = value  # type: TagValue
 
     def __str__(self) -> str:
+        """ Returns content string ``'(code, value)'``. """
         return str((self.code, self.value))
 
     def __repr__(self) -> str:
+        """ Returns representation string ``'DXFTag(code, value)'``. """
         return "DXFTag{}".format(str(self))
 
     @property
     def value(self) -> 'TagValue':
         return self._value
 
-    def __getitem__(self, item: int):
-        return (self.code, self.value)[item]
+    def __getitem__(self, index: int):
+        """ Returns :attr:`code` for index ``0`` and :attr:`value` for index ``1``, emulates a tuple."""
+        return (self.code, self.value)[index]
 
     def __iter__(self) -> Iterable:
+        """ Returns (code, value) tuples. """
         yield self.code
         yield self.value
 
     def __eq__(self, other) -> bool:
+        """ ``True`` if `other` and `self` has same content for :attr:`code` and :attr:`value`. """
         return (self.code, self.value) == other
 
+    def __hash__(self):
+        """ Hash support, :class:`DXFTag` can be used in sets and as dict key. """
+        return hash((self.code, self._value))
+
     def dxfstr(self) -> str:
+        """ Returns the DXF string e.g. ``'  0\\nLINE\\n'`` """
         return TAG_STRING_FORMAT % (self.code, self._value)
 
     def clone(self) -> 'DXFTag':
-        return self.__class__(self.code, self._value)
+        """ Returns a clone of itself, this method is necessary for the more complex (and not immutable) DXF tag types. """
+        return self  # immutable tags
 
 
 # Special marker tag
 NONE_TAG = DXFTag(None, None)  # type: ignore
+
+
+def uniform_appid(appid: str) -> str:
+    if appid[0] == '{':
+        return appid
+    else:
+        return '{' + appid
 
 
 def is_app_data_marker(tag: DXFTag) -> bool:
@@ -77,6 +123,16 @@ def is_embedded_object_marker(tag: DXFTag) -> bool:
 
 
 class DXFVertex(DXFTag):
+    """
+    Represents a 2D or 3D vertex, stores only the group code of the x-component of the vertex, because the
+    y-group-code is x-group-code + 10 and z-group-code id x-group-code+20, this is a rule that ALWAYS applies.
+    This tag is `immutable` by design, not by implementation.
+
+    Args:
+        code: group code of x-component
+        value: sequence of x, y and optional z values
+
+    """
     __slots__ = ()
 
     def __init__(self, code: int, value: Sequence[float]):
@@ -88,19 +144,27 @@ class DXFVertex(DXFTag):
     def __repr__(self) -> str:
         return "DXFVertex({}, {})".format(self.code, str(self))
 
+    def __hash__(self):
+        x, y, *z = self._value
+        z = 0. if len(z) == 0 else z[0]
+        return hash((self.code, x, y, z))
+
     @property
     def value(self) -> Tuple:
         return tuple(self._value)
 
     def dxftags(self) -> Iterable[Tuple]:
+        """ Returns all vertex components as single :class:`DXFTag` objects. """
         c = self.code
         return ((code, value) for code, value in zip((c, c + 10, c + 20), self.value))
 
     def dxfstr(self) -> str:
+        """ Returns the DXF string for all vertex components. """
         return ''.join(TAG_STRING_FORMAT % tag for tag in self.dxftags())
 
 
 class DXFBinaryTag(DXFTag):
+    """ Immutable BinaryTags class - immutable by design, not by implementation - don't change it. """
     __slots__ = ()
 
     def __str__(self) -> str:
@@ -110,14 +174,16 @@ class DXFBinaryTag(DXFTag):
         return "DXFBinaryTag({}, {})".format(self.code, reprlib.repr(self.tostring()))
 
     def tostring(self) -> str:  # value to string
-        return ''.join(byte_to_hexstr(b) for b in self.value)
+        """ Returns binary value as single hex-string. """
+        return ''.join(int_to_hexstr(b) for b in self.value)
 
     def dxfstr(self) -> str:
+        """ Returns the DXF string for all vertex components. """
         return TAG_STRING_FORMAT % (self.code, self.tostring())
 
     @classmethod
     def from_string(cls, code: int, value: str):
-        return cls(code, encode_hex_code_string_to_bytes(value))
+        return cls(code, hexstr_to_bytes(value))
 
 
 def dxftag(code: int, value: 'TagValue') -> DXFTag:
@@ -128,7 +194,7 @@ def dxftag(code: int, value: 'TagValue') -> DXFTag:
         code: group code
         value: tag value
 
-    Returns: DXFTag() or inherited
+    Returns: :class:`DXFTag` or inherited
 
     """
     if code in BINARAY_DATA:
@@ -140,6 +206,7 @@ def dxftag(code: int, value: 'TagValue') -> DXFTag:
 
 
 def tuples_to_tags(iterable: Iterable[Tuple[int, 'TagValue']]) -> Iterable[DXFTag]:
+    """ Returns an iterable if :class: `DXFTag` or inherited, accepts an iterable of (code, value) tuples as input. """
     for code, value in iterable:
         if code in POINT_CODES:
             yield DXFVertex(code, value)
@@ -216,3 +283,12 @@ def get_xcode_for(code) -> int:
     if type_ is float:
         return 1040
     return 1000
+
+
+def cast_value(code: int, value):
+    if value is not None:
+        if code in POINT_CODES:  # cast vertices to Vector()
+            return Vector(value)
+        return TYPE_TABLE.get(code, str)(value)
+    else:
+        return None

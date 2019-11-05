@@ -1,33 +1,41 @@
 Trace
 =====
 
-.. class:: Trace(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-A Trace is solid filled triangle or quadrilateral, dxftype is TRACE. Access corner points by name
-(:code:`entity.dxf.vtx0 = (1.7, 2.3)`) or by index (:code:`entity[0] = (1.7, 2.3)`). I don't know the difference
-between SOLID and TRACE.
-Create traces in layouts and blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_trace`.
+TRACE entity (`DXF Reference`_) is solid filled triangle or quadrilateral. Access vertices by name
+(:code:`entity.dxf.vtx0 = (1.7, 2.3)`) or by index (:code:`entity[0] = (1.7, 2.3)`).
+I don't know the difference between SOLID and TRACE.
 
-DXF Attributes for Trace
-------------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 ``'TRACE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_trace`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+======================== ==========================================
 
-:ref:`Common DXF attributes for DXF R12`
+.. warning::
 
-:ref:`Common DXF attributes for DXF R13 or later`
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-.. attribute:: Trace.dxf.vtx0
 
-location of the 1. point (2D/3D Point in :ref:`OCS`)
+.. class:: Trace
 
-.. attribute:: Trace.dxf.vtx1
+    .. attribute:: dxf.vtx0
 
-location of the 2. point (2D/3D Point in :ref:`OCS`)
+        Location of 1. vertex (2D/3D Point in :ref:`OCS`)
 
-.. attribute:: Trace.dxf.vtx2
+    .. attribute:: dxf.vtx1
 
-location of the 3. point (2D/3D Point in :ref:`OCS`)
+        Location of 2. vertex (2D/3D Point in :ref:`OCS`)
 
-.. attribute:: Trace.dxf.vtx3
+    .. attribute:: dxf.vtx2
 
-location of the 4. point (2D/3D Point in :ref:`OCS`)
+        Location of 3. vertex (2D/3D Point in :ref:`OCS`)
 
+    .. attribute:: dxf.vtx3
+
+        Location of 4. vertex (2D/3D Point in :ref:`OCS`)
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-EA6FBCA8-1AD6-4FB2-B149-770313E93511

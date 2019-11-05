@@ -1,81 +1,83 @@
 Mesh
 ====
 
-.. class:: Mesh(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-    Introduced in DXF version R13 (AC1012), dxftype is MESH.
+The MESH entity (`DXF Reference`_) is a 3D mesh similar to the :class:`Polyface` entity.
 
-    3D mesh entity similar to the :class:`Polyface` entity. Create :class:`Mesh` in layouts and
-    blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_mesh`.
+All vertices in :ref:`WCS` as (x, y, z) tuples
 
-    All points in :ref:`WCS` as (x, y, z) tuples
+.. versionchanged:: 0.8.9
 
-    Since *ezdxf* v0.8.9 :class:`Mesh` stores vertices, edges, faces and creases as packed data (:code:`array.array()`).
+    :class:`Mesh` stores vertices, edges, faces and creases as packed data.
 
-DXF Attributes for Mesh
------------------------
-
-:ref:`Common DXF attributes for DXF R13 or later`
-
-.. attribute:: Mesh.dxf.version
-
-.. attribute:: Mesh.dxf.blend_crease
-
-0 = off, 1 = on
-
-.. attribute:: Mesh.dxf.subdivision_levels
-
-int >= 0, 0 = no smoothing
-
-Mesh Methods
-------------
-
-.. method:: Mesh.edit_data()
-
-Context manager various mesh data, returns :class:`MeshData`.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 ``'MESH'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_mesh`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
 .. seealso::
 
-    :ref:`tut_image`
+    :ref:`tut_mesh` and helper classes: :class:`~ezdxf.render.MeshBuilder`, :class:`~ezdxf.render.MeshVertexMerger`
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-4B9ADA67-87C8-4673-A579-6E4C76FF7025
+
+.. class:: Mesh
+
+    .. attribute:: dxf.version
+
+    .. attribute:: dxf.blend_crease
+
+        ``0`` = off, ``1`` = on
+
+    .. attribute:: dxf.subdivision_levels
+
+        ``0`` for no smoothing else integer greater than ``0``.
+
+    .. autoattribute:: vertices
+
+    .. autoattribute:: edges
+
+    .. autoattribute:: faces
+
+    .. autoattribute:: creases
+
+    .. automethod:: edit_data
+
 
 MeshData
 --------
 
 .. class:: MeshData
 
-.. attribute:: MeshData.vertices
+    .. attribute:: vertices
 
-A standard Python list with (x, y, z) tuples (read/write)
+        A standard Python list with (x, y, z) tuples (read/write)
 
-.. attribute:: MeshData.faces
+    .. attribute:: faces
 
-A standard Python list with (v1, v2, v3,...) tuples (read/write)
+        A standard Python list with (v1, v2, v3,...) tuples (read/write)
 
-Each face consist of a list of vertex indices (= index in :attr:`MeshData.vertices`).
+        Each face consist of a list of vertex indices (= index in :attr:`vertices`).
 
-.. attribute:: MeshData.edges
+    .. attribute:: edges
 
-A standard Python list with (v1, v2) tuples (read/write)
+        A standard Python list with (v1, v2) tuples (read/write)
 
-Each edge consist of exact two vertex indices (= index in :attr:`MeshData.vertices`).
+        Each edge consist of exact two vertex indices (= index in :attr:`vertices`).
 
-.. attribute:: MeshData.edge_crease_values
+    .. attribute:: edge_crease_values
 
-A standard Python list of float values, one value for each edge. (read/write)
+        A standard Python list of float values, one value for each edge. (read/write)
 
-.. method:: MeshData.add_face(vertices)
+    .. automethod:: add_face
 
-Add a face by coordinates, vertices is a list of (x, y, z) tuples.
+    .. automethod:: add_edge
 
-.. method:: MeshData.add_edge(vertices)
+    .. automethod:: optimize
 
-Add an edge by coordinates, vertices is a list of two (x, y, z) tuples.
 
-.. method:: MeshData.optimize(precision=6)
-
-Tries to reduce vertex count by merging near vertices. *precision* defines the decimal places for coordinate
-be equal to merge two vertices.
-
-.. seealso::
-
-    :ref:`tut_mesh`

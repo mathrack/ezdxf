@@ -1,58 +1,82 @@
 Style
 =====
 
-.. class:: Style
+.. module:: ezdxf.entities
+    :noindex:
 
-    Defines a text style, can be used by entities: :class:`Text`, :class:`Attrib` and :class:`Attdef`
+Defines a text style (`DXF Reference`_), can be used by entities: :class:`Text`, :class:`Attrib` and
+:class:`Attdef`.
 
-DXF Attributes for Style
-------------------------
 
-.. attribute:: Style.dxf.handle
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFEntity`
+DXF type                 ``'STYLE'``
+Factory function         :meth:`Drawing.styles.new`
+======================== ==========================================
 
-    DXF handle (feature for experts)
+.. seealso::
 
-.. attribute:: Style.dxf.owner
+    :ref:`tut_text` and DXF internals for :ref:`dimstyle_table_internals`.
 
-    requires DXF R13 or later
+.. class:: Textstyle
 
-.. attribute:: Style.dxf.name
+    .. attribute:: dxf.handle
 
-    Style name (str)
+        DXF handle (feature for experts).
 
-.. attribute:: Style.dxf.flags
+    .. attribute:: dxf.owner
 
-    Style flags (feature for experts)
+        Handle to owner (:class:`~ezdxf.sections.table.StyleTable`).
 
-.. attribute:: Style.dxf.height
+    .. attribute:: dxf.name
 
-    Fixed height in drawing units, 0 for not fixed (float)
+        Style name (str)
 
-.. attribute:: Style.dxf.width
+    .. attribute:: dxf.flags
 
-    Width factor (float), default is 1
+        Style flags (feature for experts).
 
-.. attribute:: Style.dxf.oblique
+        === =======================================================
+        1   If set, this entry describes a shape
+        4   Vertical text
+        16  If set, table entry is externally dependent on an xref
+        32  If both this bit and bit 16 are set, the externally dependent xref has been successfully resolved
+        64  If set, the table entry was referenced by at least one entity in the drawing the last time the drawing was
+            edited. (This flag is only for the benefit of AutoCAD)commands. It can be ignored by most programs that read DXF
+            files and need not be set by programs that write DXF files)
+        === =======================================================
 
-    Oblique angle in degrees, 0 is vertical (float)
+    .. attribute:: dxf.height
 
-.. attribute:: Style.dxf.text_generation_flags
+        Fixed height in drawing units, ``0`` for not fixed (float).
 
-    Text generations flags (int)
+    .. attribute:: dxf.width
 
-    === ===================================
-    2   text is backward (mirrored in X)
-    4   text is upside down (mirrored in Y)
-    === ===================================
+        Width factor (float), default is ``1``.
 
-.. attribute:: Style.dxf.last_height
+    .. attribute:: dxf.oblique
 
-    Last height used in drawing units (float)
+        Oblique angle in degrees, ``0`` is vertical (float).
 
-.. attribute:: Style.dxf.font
+    .. attribute:: dxf.generation_flags
 
-    Primary font file name (str)
+        Text generations flags (int)
 
-.. attribute:: Style.dxf.bigfont
+        === ===================================
+        2   text is backward (mirrored in X)
+        4   text is upside down (mirrored in Y)
+        === ===================================
 
-    Big font name, blank if none (str)
+    .. attribute:: dxf.last_height
+
+        Last height used in drawing units (float).
+
+    .. attribute:: dxf.font
+
+        Primary font file name (str).
+
+    .. attribute:: dxf.bigfont
+
+        Big font name, blank if none (str)
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-EF68AF7C-13EF-45A1-8175-ED6CE66C8FC9

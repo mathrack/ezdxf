@@ -5,6 +5,7 @@
 from typing import TYPE_CHECKING, List, Tuple, Sequence, Union, cast
 from ezdxf.render.arrows import ARROWS
 from ezdxf.options import options
+from ezdxf.lldxf.const import DXF12
 import logging
 
 if TYPE_CHECKING:  # import forward declarations
@@ -13,19 +14,18 @@ if TYPE_CHECKING:  # import forward declarations
 logger = logging.getLogger('ezdxf')
 
 
-def setup_drawing(dwg: 'Drawing', topics: Union[str, bool, Sequence] = 'all'):
+def setup_drawing(doc: 'Drawing', topics: Union[str, bool, Sequence] = 'all'):
     """
     Setup default linetypes, text styles or dimension styles.
 
     Args:
-        dwg: DXF document
+        doc: DXF document
         topics: 'all' or True to setup everything
-            Tuple of strings to specify setup:
-                - 'linetypes': setup linetypes
-                - 'styles'; setup text styles
-                - 'dimstyles[:all|metric|us]': setup dimension styles (us not implemented)
-
-    Returns:
+                Tuple of strings to specify setup:
+                    - 'linetypes': setup linetypes
+                    - 'styles': setup text styles
+                    - 'dimstyles[:all|metric|us]': setup dimension styles (us not implemented)
+                    - 'visualstyles': setup 25 standard visual styles
 
     """
     if not topics:  # topics is None, False or ''
@@ -46,10 +46,13 @@ def setup_drawing(dwg: 'Drawing', topics: Union[str, bool, Sequence] = 'all'):
         topics = list(t.lower() for t in topics)
 
     if setup_all or 'linetypes' in topics:
-        setup_linetypes(dwg)
+        setup_linetypes(doc)
 
     if setup_all or 'styles' in topics:
-        setup_styles(dwg)
+        setup_styles(doc)
+
+    if setup_all or 'visualstyles' in topics:
+        setup_visual_styles(doc)
 
     dimstyles = get_token('dimstyles')
     if setup_all or len(dimstyles):
@@ -57,46 +60,46 @@ def setup_drawing(dwg: 'Drawing', topics: Union[str, bool, Sequence] = 'all'):
             domain = dimstyles[1]
         else:
             domain = 'all'
-        setup_dimstyles(dwg, domain=domain)
+        setup_dimstyles(doc, domain=domain)
 
 
-def setup_linetypes(dwg: 'Drawing') -> None:
+def setup_linetypes(doc: 'Drawing') -> None:
     for name, desc, pattern in linetypes():
-        if name in dwg.linetypes:
+        if name in doc.linetypes:
             continue
-        dwg.linetypes.new(name, dxfattribs={
+        doc.linetypes.new(name, dxfattribs={
             'description': desc,
             'pattern': pattern,
         })
 
 
-def setup_styles(dwg: 'Drawing') -> None:
-    dwg.header['$TEXTSTYLE'] = 'OpenSans'
+def setup_styles(doc: 'Drawing') -> None:
+    doc.header['$TEXTSTYLE'] = 'OpenSans'
     for name, font in styles():
-        if name in dwg.styles:
+        if name in doc.styles:
             continue
-        dwg.styles.new(name, dxfattribs={
+        doc.styles.new(name, dxfattribs={
             'font': font,
         })
 
 
-def setup_dimstyles(dwg: 'Drawing', domain: str = 'all') -> None:
-    setup_styles(dwg)
-    ezdxf_dimstyle = setup_dimstyle(dwg, name='EZDXF', fmt='EZ_M_100_H25_CM',
+def setup_dimstyles(doc: 'Drawing', domain: str = 'all') -> None:
+    setup_styles(doc)
+    ezdxf_dimstyle = setup_dimstyle(doc, name='EZDXF', fmt='EZ_M_100_H25_CM',
                                     style=options.default_dimension_text_style,
                                     blk=ARROWS.architectural_tick)
     ezdxf_dimstyle.dxf.dimasz *= .7  # smaller arch ticks
-    dwg.header['$DIMSTYLE'] = 'EZDXF'
-    ezdxf_dimstyle.copy_to_header(dwg)
+    doc.header['$DIMSTYLE'] = 'EZDXF'
+    ezdxf_dimstyle.copy_to_header(doc)
 
     if domain in ('metric', 'all'):
-        setup_dimstyle(dwg, fmt='EZ_M_100_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_50_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_25_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_20_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_10_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_5_H25_CM', style=options.default_dimension_text_style)
-        setup_dimstyle(dwg, fmt='EZ_M_1_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_100_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_50_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_25_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_20_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_10_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_5_H25_CM', style=options.default_dimension_text_style)
+        setup_dimstyle(doc, fmt='EZ_M_1_H25_CM', style=options.default_dimension_text_style)
     elif domain in ('us', 'all'):
         pass
 
@@ -160,7 +163,7 @@ class DimStyleFmt:
         return .25 * self.unit_factor
 
 
-def setup_dimstyle(dwg: 'Drawing', fmt: str, style: str = None, blk: str = None, name: str = '') -> 'DimStyle':
+def setup_dimstyle(doc: 'Drawing', fmt: str, style: str = None, blk: str = None, name: str = '') -> 'DimStyle':
     """
     Easy DimStyle setup, the `fmt` string defines four essential dimension parameters separated by the `_` character.
     Tested and works with the metric system, I don't touch the 'english unit' system.
@@ -174,7 +177,7 @@ def setup_dimstyle(dwg: 'Drawing', fmt: str, style: str = None, blk: str = None,
         5. 'EZ_M_100_H25_<CM>': defines the units for the measurement text, valid values are 'M', 'DM', 'CM', 'MM'
 
     Args:
-        dwg: DXF drawing
+        doc: DXF drawing
         fmt: format string
         style: text style for measurement
         blk: block name for arrow None for oblique stroke
@@ -184,11 +187,11 @@ def setup_dimstyle(dwg: 'Drawing', fmt: str, style: str = None, blk: str = None,
     style = style or options.default_dimension_text_style
     fmt = DimStyleFmt(fmt)
     name = name or fmt.name
-    if dwg.dimstyles.has_entry(name):
+    if doc.dimstyles.has_entry(name):
         logging.debug('DimStyle "{}" already exists.'.format(name))
-        return cast('DimStyle', dwg.dimstyles.get(name))
+        return cast('DimStyle', doc.dimstyles.get(name))
 
-    dimstyle = cast('DimStyle', dwg.dimstyles.new(name))
+    dimstyle = cast('DimStyle', doc.dimstyles.new(name))
     dimstyle.dxf.dimtxt = fmt.dimtxt
     dimstyle.dxf.dimlfac = fmt.dimlfac  # factor for measurement; dwg in m : measurement in cm -> dimlfac=100
     dimstyle.dxf.dimgap = fmt.dimtxt * .4  # gap between text and dimension line
@@ -207,7 +210,7 @@ def setup_dimstyle(dwg: 'Drawing', fmt: str, style: str = None, blk: str = None,
     else:  # arrow or block
         dimstyle.set_arrows(blk=blk)
         dimstyle.dxf.dimasz = fmt.dimasz
-    if dwg.dxfversion > 'AC1009':
+    if doc.dxfversion > DXF12:
         # set text style
         dimstyle.dxf.dimtmove = 2  # move freely without leader
         dimstyle.dxf.dimtxsty = style
@@ -296,3 +299,68 @@ def styles():
         ('LiberationMono-BoldItalic', 'LiberationMono-BoldItalic.ttf'),
         ('LiberationMono-Italic', 'LiberationMono-Italic.ttf'),
     ]
+
+
+VISUAL_STYLES = [
+    {'description': '2dWireframe', 'style_type': 4, 'internal_use_only_flag': 0, 'face_modifiers': 0, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Basic', 'style_type': 7, 'internal_use_only_flag': 1, 'face_modifiers': 1, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Brighten', 'style_type': 12, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'ColorChange', 'style_type': 16, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 8, 'edge_hide_precision': 0},
+    {'description': 'Conceptual', 'style_type': 9, 'internal_use_only_flag': 0, 'face_modifiers': 3, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Dim', 'style_type': 11, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'EdgeColorOff', 'style_type': 22, 'internal_use_only_flag': 1, 'face_modifiers': 2,
+     'face_opacity_level': 0.6, 'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Facepattern', 'style_type': 15, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Flat', 'style_type': 0, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'FlatWithEdges', 'style_type': 1, 'internal_use_only_flag': 1, 'face_modifiers': 2,
+     'face_opacity_level': 0.6, 'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Gouraud', 'style_type': 2, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'GouraudWithEdges', 'style_type': 3, 'internal_use_only_flag': 1, 'face_modifiers': 2,
+     'face_opacity_level': 0.6, 'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Hidden', 'style_type': 6, 'internal_use_only_flag': 0, 'face_modifiers': 1, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'JitterOff', 'style_type': 20, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Linepattern', 'style_type': 14, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Modeling', 'style_type': 10, 'internal_use_only_flag': 0, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'OverhangOff', 'style_type': 21, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Realistic', 'style_type': 8, 'internal_use_only_flag': 0, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Shaded', 'style_type': 27, 'internal_use_only_flag': 0, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Shaded with edges', 'style_type': 26, 'internal_use_only_flag': 0, 'face_modifiers': 2,
+     'face_opacity_level': 0.6, 'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Shades of Gray', 'style_type': 23, 'internal_use_only_flag': 0, 'face_modifiers': 2,
+     'face_opacity_level': 0.6, 'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Sketchy', 'style_type': 24, 'internal_use_only_flag': 0, 'face_modifiers': 1, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Thicken', 'style_type': 13, 'internal_use_only_flag': 1, 'face_modifiers': 2, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'Wireframe', 'style_type': 5, 'internal_use_only_flag': 0, 'face_modifiers': 0, 'face_opacity_level': 0.6,
+     'color1': 7, 'edge_hide_precision': 0},
+    {'description': 'X-Ray', 'style_type': 25, 'internal_use_only_flag': 0, 'face_modifiers': 2, 'face_opacity_level': 0.5,
+     'color1': 7, 'edge_hide_precision': 0},
+
+]
+
+
+def setup_visual_styles(doc: 'Drawing'):
+    objects = doc.objects
+    vstyle_dict = doc.rootdict.get_required_dict('ACAD_VISUALSTYLE')
+    vstyle_dict_handle = vstyle_dict.dxf.handle
+    for vstyle in VISUAL_STYLES:
+        vstyle['owner'] = vstyle_dict_handle
+        vstyle_object = objects.add_dxf_object_with_reactor('VISUALSTYLE', dxfattribs=vstyle)
+        vstyle_dict[vstyle_object.dxf.description] = vstyle_object

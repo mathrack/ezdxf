@@ -1,44 +1,52 @@
 Body
 ====
 
-Introduced in DXF version R13 (AC1012), dxftype is BODY.
+.. module:: ezdxf.entities
+    :noindex:
 
-A 3D object created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
-Create :class:`Body` objects in layouts and blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_body`.
-`ezdxf`` will never interpret ACIS source code, don't ask me for this feature.
+BODY (`DXF Reference`_) created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
 
-.. class:: Body(GraphicEntity)
+`ezdxf` will never interpret ACIS source code, don't ask me for this feature.
 
-.. method:: Body.get_acis_data()
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 ``'BODY'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_body`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-    Get the ACIS source code as a list of strings.
+.. warning::
 
-.. method:: Body.set_acis_data(test_lines)
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-    Set the ACIS source code as a list of strings **without** line endings.
+.. class:: Body
 
-.. method:: Body.edit_data()
+    .. attribute:: dxf.version
 
-    Context manager for  ACIS text lines, returns :class:`ModelerGeometryData`::
+        Modeler format version number, default value is ``1``
 
-        with body_entity.edit_data as data:
-            # data.text_lines is a standard Python list
-            # remove, append and modify ACIS source code
-            data.text_lines = ['line 1', 'line 2', 'line 3']  # replaces the whole ACIS content (with invalid data)
+    .. attribute:: dxf.flags
 
+        Require DXF R2013.
 
+    .. attribute:: dxf.uid
 
-ModelerGeometryData
--------------------
+        Require DXF R2013.
 
-.. class:: ModelerGeometryData:
+    .. attribute:: acis_data
 
-.. attribute:: ModelerGeometryData.text_lines
+        Get/Set ACIS text data as list of strings for DXF R2000 to R2010 and binary encoded ACIS data for DXF R2013
+        and later as list of bytes.
 
-    ACIS date as list of strings. (read/write)
+    .. autoattribute:: has_binary_data
 
-.. method:: ModelerGeometryData.__str__()
+    .. automethod:: tostring
 
-    Return concatenated :attr:`~ModelerGeometryData.text_lines` as one string, lines are separated by "\n".
+    .. automethod:: tobytes
+
+    .. automethod:: set_text
 
 .. _Spatial Corp.: http://www.spatial.com/products/3d-acis-modeling
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-7FB91514-56FF-4487-850E-CF1047999E77

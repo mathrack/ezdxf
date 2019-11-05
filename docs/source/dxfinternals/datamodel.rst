@@ -15,7 +15,7 @@ features:
 
     - A handle whose value is unique to the drawing/DXF file, and is constant for the lifetime of the drawing. This
       format has existed since AutoCAD Release 10, and as of AutoCAD Release 13, handles are always enabled.
-    - An optional xdata table, as entities have had since AutoCAD Release 11.
+    - An optional XDATA table, as entities have had since AutoCAD Release 11.
     - An optional persistent reactor table.
     - An optional ownership pointer to an extension dictionary which, in turn, owns subobjects placed in it by an
       application.
@@ -33,12 +33,12 @@ The DXF R12 data model is identical to the file structure:
     - HEADER section: common settings for the DXF drawing
     - TABLES section: definitions for LAYERS, LINETYPE, STYLES ....
     - BLOCKS section: block definitions and its content
-    - ENTITIES section: model space and paper space content
+    - ENTITIES section: modelspace and paperspace content
 
 References are realized by simple names. The INSERT entity references the BLOCK definition by the BLOCK name, a TEXT
 entity defines the associated STYLE and LAYER by its name and so on, handles are not needed. Layout association of
 graphical entities in the ENTITIES section by the paper_space tag :code:`(67, 0 or 1)`, 0 or missing tag means model
-space, 1 means paper space. The content of BLOCK definitions is enclosed by the BLOCK and the ENDBLK entity, no
+space, 1 means paperspace. The content of BLOCK definitions is enclosed by the BLOCK and the ENDBLK entity, no
 additional references are needed.
 
 A clean and simple file structure and data model, which seems to be the reason why the DXF R12 Reference (released 1992)
@@ -66,7 +66,7 @@ understood.
 
 The TABLES section got a new BLOCK_RECORD table - see :ref:`Block Management Structures` for more information.
 
-The BLOCKS sections is mostly the same, but with handles, owner tags and new ENTITY types. Not active paper space
+The BLOCKS sections is mostly the same, but with handles, owner tags and new ENTITY types. Not active paperspace
 layouts store their content also in the BLOCKS section - see :ref:`Layout Management Structures` for more information.
 
 The ENTITIES section is also mostly same, but with handles, owner tags and new ENTITY types.
@@ -75,17 +75,18 @@ The ENTITIES section is also mostly same, but with handles, owner tags and new E
 
 And the new OBJECTS section - now its getting complicated!
 
-Most information about the OBJECTS section is just guessed or gathered by trail and error (reverse engineering), because
+Most information about the OBJECTS section is just guessed or gathered by trail and error, because
 the documentation of the OBJECTS section and its objects in the DXF reference provided by Autodesk is very shallow.
 This is also the reason why I started the DXF Internals section, may be it helps other developers to start one or two
 steps above level zero.
 
 The OBJECTS sections stores all the non-graphical entities of the DXF drawing.
-Non-graphical entities from now on just called 'objects' to differentiate them from graphical entities, just called
-'entities'. The OBJECTS section follows commonly the ENTITIES section, but this is not mandatory. DXF R13
-introduces also several new DXF objects, which resides exclusive in the OBJECTS section, taken from the DXF R14 reference,
-because I have no access to the DXF R13 reference, the DXF R13 reference is a compiled .hlp file which can't be read on
-Windows 10, a drastic real world example why it is better to avoid closed (proprietary) data formats ;):
+Non-graphical entities from now on just called 'DXF objects' to differentiate them from graphical entities, just called
+'entities'. The OBJECTS section follows commonly the ENTITIES section, but this is not mandatory.
+
+DXF R13 introduces several new DXF objects, which resides exclusive in the OBJECTS section, taken from the DXF R14
+reference, because I have no access to the DXF R13 reference, the DXF R13 reference is a compiled .hlp file which can't
+be read on Windows 10, a drastic real world example why it is better to avoid closed (proprietary) data formats ;):
 
     - DICTIONARY: a general structural entity as a <name: handle> container
     - ACDBDICTIONARYWDFLT: a DICTIONARY with a default value
@@ -105,14 +106,14 @@ Windows 10, a drastic real world example why it is better to avoid closed (propr
     - XRECORD: used to store and manage arbitrary data. This object is similar in concept to XDATA but is not
       limited by size or order. Not supported by R13c0 through R13c3.
 
-Still missing the LAYOUT object, which is mandatory in DXF R2000 to manage multiple paper space layouts. I don't know
+Still missing the LAYOUT object, which is mandatory in DXF R2000 to manage multiple paperspace layouts. I don't know
 how DXF R13/R14 manages multiple layouts or if they even support this feature, but I don't care much about DXF R13/R14,
 because AutoCAD has no write support for this two formats anymore. ezdxf tries to upgrade this two DXF versions to DXF
 R2000 with the advantage of only two different data models to support: DXF R12 and DXF R2000+
 
 New objects introduced by DXF R2000:
 
-    - LAYOUT: management object for model space and multiple paper space layouts
+    - LAYOUT: management object for modelspace and multiple paperspace layouts
     - ACDBPLACEHOLDER: surprise - just a place holder
 
 New objects in DXF R2004:
@@ -214,7 +215,7 @@ Root DICTIONARY content for DXF R2018
     ACAD_GROUP
     350
     4FC     <<< points to a DICTIONARY
-    3       <<< LAYOUT management, mandatory if more than the *active* paper space is used
+    3       <<< LAYOUT management, mandatory if more than the *active* paperspace is used
     ACAD_LAYOUT
     350
     4FD     <<< points to a DICTIONARY

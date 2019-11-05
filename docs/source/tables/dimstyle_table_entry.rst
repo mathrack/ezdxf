@@ -1,455 +1,401 @@
 DimStyle
 ========
 
+.. module:: ezdxf.entities
+    :noindex:
+
+.. image:: ../dxfinternals/tables/gfx/dimvars1.svg
+    :align: center
+    :width: 800px
+
+.. image:: ../dxfinternals/tables/gfx/dimvars2.svg
+    :align: center
+    :width: 800px
+
+DIMSTYLE (`DXF Reference`_) defines the appearance of :class:`Dimension` entities. Each of this dimension variables
+starting with ``dim...`` can be overridden for any :class:`Dimension` entity individually.
+
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFEntity`
+DXF type                 ``'DIMSTYLE'``
+Factory function         :meth:`Drawing.dimstyles.new`
+======================== ==========================================
+
 .. class:: DimStyle
 
-Defines the appearance of :class:`Dimension` entities. Each of this dimension variables statrin with ``dim`` can be
-overridden for any :class:`Dimension` entity individually.
+    .. attribute:: dxf.owner
 
-.. image:: ../dxfinternals/gfx/dimvars1.svg
-    :align: center
-    :width: 800px
+        Handle to owner (:class:`~ezdxf.sections.table.Table`).
 
-.. image:: ../dxfinternals/gfx/dimvars2.svg
-    :align: center
-    :width: 800px
+    .. attribute:: dxf.name
 
-DXF Attributes for DimStyle
----------------------------
+        Dimension style name.
 
-.. attribute:: DimStyle.dxf.handle
+    .. attribute:: dxf.flags
 
-    Handle of table entry.
+        Standard flag values (bit-coded values):
 
-.. attribute:: DimStyle.dxf.owner
+        ======= ==============================================================================================
+        16      If set, table entry is externally dependent on an xref
+        32      If both this bit and bit 16 are set, the externally dependent xref has been successfully resolved
+        64      If set, the table entry was referenced by at least one entity in the drawing the last time the drawing
+                was edited. (This flag is only for the benefit of AutoCAD)
+        ======= ==============================================================================================
 
-    Handle to dimstyle table, requires DXF R13 or later
+    .. attribute:: dxf.dimpost
 
-.. attribute:: DimStyle.dxf.name
+        Prefix/suffix for primary units dimension values.
 
-    Dimension style name.
+    .. attribute:: dxf.dimapost
 
-.. attribute:: DimStyle.dxf.flags
+        Prefix/suffix for alternate units dimensions.
 
-    Standard flag values (bit-coded values):
+    .. attribute:: dxf.dimblk
 
-    ======= ==============================================================================================
-    16      If set, table entry is externally dependent on an xref
-    32      If both this bit and bit 16 are set, the externally dependent xref has been successfully resolved
-    64      If set, the table entry was referenced by at least one entity in the drawing the last time the drawing
-            was edited. (This flag is for the benefit of AutoCAD commands. It can be ignored by most programs that read
-            DXF files and need not be set by programs that write DXF files)
-    ======= ==============================================================================================
+        Block type to use for both arrowheads as name string.
 
-.. attribute:: DimStyle.dxf.dimpost
+    .. attribute:: dxf.dimblk1
 
-    Prefix/suffix for primary units dimension values.
+        Block type to use for first arrowhead as name string.
 
-.. attribute:: DimStyle.dxf.dimapost
+    .. attribute:: dxf.dimblk2
 
-    Prefix/suffix for alternate units dimensions.
+        Block type to use for second arrowhead as name string.
 
-.. attribute:: DimStyle.dxf.dimblk
+    .. attribute:: dxf.dimscale
 
-    Block type to use for both arrowheads as name string.
+        Global dimension feature scale factor. (default=1)
 
-.. attribute:: DimStyle.dxf.dimblk1
+    .. attribute:: dxf.dimasz
 
-    Block type to use for first arrowhead as name string.
+        Dimension line and arrowhead size. (default=0.28)
 
-.. attribute:: DimStyle.dxf.dimblk2
+    .. attribute:: dxf.dimexo
 
-    Block type to use for second arrowhead as name string.
+        Distance from origin points to extension lines. (default imperial=0.0625, default metric=0.625)
 
-.. attribute:: DimStyle.dxf.dimscale
+    .. attribute:: dxf.dimdli
 
-    Global dimension feature scale factor. (default=1.)
+        Incremental spacing between baseline dimensions. (default imperial=0.38, default metric=3.75)
 
-.. attribute:: DimStyle.dxf.dimasz
+    .. attribute:: dxf.dimexe
 
-    Dimension line and arrowhead size. (default=0.28)
+        Extension line distance beyond dimension line. (default imperial=0.28, default metric=2.25)
 
-.. attribute:: DimStyle.dxf.dimexo
+    .. attribute:: dxf.dimrnd
 
-    Distance from origin points to extension lines. (default imperial=0.0625, default metric=0.625)
+        Rounding value for decimal dimensions. (default=0)
 
-.. attribute:: DimStyle.dxf.dimdli
+        Rounds all dimensioning distances to the specified value, for instance, if DIMRND is set to 0.25,
+        all distances round to the nearest 0.25 unit. If you set DIMRND to 1.0, all distances round to
+        the nearest integer.
 
-    Incremental spacing between baseline dimensions. (default imperial=0.38, default metric=3.75)
+    .. attribute:: dxf.dimdle
 
-.. attribute:: DimStyle.dxf.dimexe
+        Dimension line extension beyond extension lines. (default=0)
 
-    Extension line distance beyond dimension line. (default imperial=0.28, default metric=2.25)
+    .. attribute:: dxf.dimtp
 
-.. attribute:: DimStyle.dxf.dimrnd
+        Upper tolerance value for tolerance dimensions. (default=0)
 
-    Rounding value for decimal dimensions. (default=0)
+    .. attribute:: dxf.dimtm
 
-    Rounds all dimensioning distances to the specified value, for instance, if `DIMRND` is set to 0.25,
-    all distances round to the nearest 0.25 unit. If you set `DIMRND` to 1.0, all distances round to
-    the nearest integer.
+        Lower tolerance value for tolerance dimensions. (default=0)
 
-.. attribute:: DimStyle.dxf.dimdle
+    .. attribute:: dxf.dimtxt
 
-    Dimension line extension beyond extension lines. (default=0)
+        Size of dimension text. (default imperial=0.28, default metric=2.5)
 
-.. attribute:: DimStyle.dxf.dimtp
+    .. attribute:: dxf.dimcen
 
-    Upper tolerance value for tolerance dimensions. (default=0)
+        Controls placement of center marks or centerlines. (default imperial=0.09, default metric=2.5)
 
-.. attribute:: DimStyle.dxf.dimtm
+    .. attribute:: dxf.dimtsz
 
-    Lower tolerance value for tolerance dimensions. (default=0)
+        Controls size of dimension line tick marks drawn instead of arrowheads. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtxt
+    .. attribute:: dxf.dimaltf
 
-    Size of dimension text. (default imperial=0.28, default metric=2.5)
+        Alternate units dimension scale factor. (default=25.4)
 
-.. attribute:: DimStyle.dxf.dimcen
+    .. attribute:: dxf.dimlfac
 
-    Controls placement of center marks or centerlines. (default imperial=0.09, default metric=2.5)
+        Scale factor for linear dimension values. (default=1)
 
-.. attribute:: DimStyle.dxf.dimtsz
+    .. attribute:: dxf.dimtvp
 
-    Controls size of dimension line tick marks drawn instead of arrowheads. (default=0)
+        Vertical position of text above or below dimension line. (default=0)
 
-.. attribute:: DimStyle.dxf.dimaltf
+    .. attribute:: dxf.dimtfac
 
-    Alternate units dimension scale factor. (default=25.4)
+        Scale factor for fractional or tolerance text size. (default=1)
 
-.. attribute:: DimStyle.dxf.dimlfac
+    .. attribute:: dxf.dimgap
 
-    Scale factor for linear dimension values. (default=1)
+        Gap size between dimension line and dimension text. (default imperial=0.09, default metric=0.625)
 
-.. attribute:: DimStyle.dxf.dimtvp
+    .. attribute:: dxf.dimaltrnd
 
-    Vertical position of text above or below dimension line. (default=0)
+        Rounding value for alternate dimension units. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtfac
+    .. attribute:: dxf.dimtol
 
-    Scale factor for fractional or tolerance text size. (default=1)
+        Toggles creation of appended tolerance dimensions. (default imperial=1, default metric=0)
 
-.. attribute:: DimStyle.dxf.dimgap
+    .. attribute:: dxf.dimlim
 
-    Gap size between dimension line and dimension text. (default imperial=0.09, default metric=0.625)
+        Toggles creation of limits-style dimension text. (default=0)
 
-.. attribute:: DimStyle.dxf.dimaltrnd
+    .. attribute:: dxf.dimtih
 
-    Rounding value for alternate dimension units. (default=0)
+        Orientation of text inside extension lines. (default imperial=1, default metric=0)
 
-.. attribute:: DimStyle.dxf.dimtol
+    .. attribute:: dxf.dimtoh
 
-    Toggles creation of appended tolerance dimensions. (default imperial=1, default metric=0)
+        Orientation of text outside extension lines. (default imperial=1, default metric=0)
 
-.. attribute:: DimStyle.dxf.dimlim
+    .. attribute:: dxf.dimse1
 
-    Toggles creation of limits-style dimension text. (default=0)
+        Toggles suppression of first extension line. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtih
+    .. attribute:: dxf.dimse2
 
-    Orientation of text inside extension lines. (default imperial=1, default metric=0)
+        Toggles suppression of second extension line. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtoh
+    .. attribute:: dxf.dimtad
 
-    Orientation of text outside extension lines. (default imperial=1, default metric=0)
+        Sets text placement relative to dimension line. (default imperial=0, default metric=1)
 
-.. attribute:: DimStyle.dxf.dimse1
+    .. attribute:: dxf.dimzin
 
-    Toggles suppression of first extension line. (default=0)
+        Zero suppression for primary units dimensions. (default imperial=0, default metric=8) ???
 
-.. attribute:: DimStyle.dxf.dimse2
+    .. attribute:: dxf.dimazin
 
-    Toggles suppression of second extension line. (default=0)
+        Controls zero suppression for angular dimensions. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtad
+    .. attribute:: dxf.dimalt
 
-    Sets text placement relative to dimension line. (default imperial=0, default metric=1)
+        Enables or disables alternate units dimensioning. (default=0)
 
-.. attribute:: DimStyle.dxf.dimzin
+    .. attribute:: dxf.dimaltd
 
-    Zero suppression for primary units dimensions. (default imperial=0, default metric=8) ???
+        Controls decimal places for alternate units dimensions. (default imperial=2, default metric=3)
 
-.. attribute:: DimStyle.dxf.dimazin
+    .. attribute:: dxf.dimtofl
 
-    Controls zero suppression for angular dimensions. (default=0)
+        Toggles forced dimension line creation. (default imperial=0, default metric=1)
 
-.. attribute:: DimStyle.dxf.dimalt
+    .. attribute:: dxf.dimsah
 
-    Enables or disables alternate units dimensioning. (default=0)
+        Toggles appearance of arrowhead blocks. (default=0)
 
-.. attribute:: DimStyle.dxf.dimaltd
+    .. attribute:: dxf.dimtix
 
-    Controls decimal places for alternate units dimensions. (default imperial=2, default metric=3)
+        Toggles forced placement of text between extension lines. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtofl
+    .. attribute:: dxf.dimsoxd
 
-    Toggles forced dimension line creation. (default imperial=0, default metric=1)
+        Suppresses dimension lines outside extension lines. (default=0)
 
-.. attribute:: DimStyle.dxf.dimsah
+    .. attribute:: dxf.dimclrd
 
-    Toggles appearance of arrowhead blocks. (default=0)
+        Dimension line, arrowhead, and leader line color. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtix
+    .. attribute:: dxf.dimclre
 
-    Toggles forced placement of text between extension lines. (default=0)
+        Dimension extension line color. (default=0)
 
-.. attribute:: DimStyle.dxf.dimsoxd
+    .. attribute:: dxf.dimclrt
 
-    Suppresses dimension lines outside extension lines. (default=0)
+        Dimension text color. (default=0)
 
-.. attribute:: DimStyle.dxf.dimclrd
+    .. attribute:: dxf.dimadec
 
-    Dimension line, arrowhead, and leader line color. (default=0)
+        Controls the number of decimal places for angular dimensions.
 
-.. attribute:: DimStyle.dxf.dimclre
+    .. attribute:: dxf.dimunit
 
-    Dimension extension line color. (default=0)
+        Obsolete, now use DIMLUNIT AND DIMFRAC
 
-.. attribute:: DimStyle.dxf.dimclrt
+    .. attribute:: dxf.dimdec
 
-    Dimension text color. (default=0)
+        Decimal places for dimension values. (default imperial=4, default metric=2)
 
-.. attribute:: DimStyle.dxf.dimadec
+    .. attribute:: dxf.dimtdec
 
-    Controls the number of decimal places for angular dimensions.
+        Decimal places for primary units tolerance values. (default imperial=4, default metric=2)
 
-.. attribute:: DimStyle.dxf.dimunit
+    .. attribute:: dxf.dimaltu
 
-    Obsolete, now use DIMLUNIT AND DIMFRAC
+        Units format for alternate units dimensions. (default=2)
 
-.. attribute:: DimStyle.dxf.dimdec
+    .. attribute:: dxf.dimalttd
 
-    Decimal places for dimension values. (default imperial=4, default metric=2)
+        Decimal places for alternate units tolerance values. (default imperial=4, default metric=2)
 
-.. attribute:: DimStyle.dxf.dimtdec
+    .. attribute:: dxf.dimaunit
 
-    Decimal places for primary units tolerance values. (default imperial=4, default metric=2)
+        Unit format for angular dimension values. (default=0)
 
-.. attribute:: DimStyle.dxf.dimaltu
+    .. attribute:: dxf.dimfrac
 
-    Units format for alternate units dimensions. (default=2)
+        Controls the fraction format used for architectural and fractional dimensions. (default=0)
 
-.. attribute:: DimStyle.dxf.dimalttd
+    .. attribute:: dxf.dimlunit
 
-    Decimal places for alternate units tolerance values. (default imperial=4, default metric=2)
+        Specifies units for all nonangular dimensions. (default=2)
 
-.. attribute:: DimStyle.dxf.dimaunit
+    .. attribute:: dxf.dimdsep
 
-    Unit format for angular dimension values. (default=0)
+        Specifies a single character to use as a decimal separator. (default imperial=".", default metric=",")
+        This is an integer value, use :code:`ord('.')` to write value.
 
-.. attribute:: DimStyle.dxf.dimfrac
+    .. attribute:: dxf.dimtmove
 
-    Controls the fraction format used for architectural and fractional dimensions. (default=0)
+        Controls the format of dimension text when it is moved. (default=0)
 
-.. attribute:: DimStyle.dxf.dimlunit
+    .. attribute:: dxf.dimjust
 
-    Specifies units for all nonangular dimensions. (default=2)
+        Horizontal justification of dimension text. (default=0)
 
-.. attribute:: DimStyle.dxf.dimdsep
+    .. attribute:: dxf.dimsd1
 
-    Specifies a single character to use as a decimal separator. (default imperial=".", default metric=",")
-    This is an integer value, use :code:`ord('.')` to write value.
+        Toggles suppression of first dimension line. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtmove
+    .. attribute:: dxf.dimsd2
 
-    Controls the format of dimension text when it is moved. (default=0)
+        Toggles suppression of second dimension line. (default=0)
 
-.. attribute:: DimStyle.dxf.dimjust
+    .. attribute:: dxf.dimtolj
 
-    Horizontal justification of dimension text. (default=0)
+        Vertical justification for dimension tolerance text. (default=1)
 
-.. attribute:: DimStyle.dxf.dimsd1
+    .. attribute:: dxf.dimaltz
 
-    Toggles suppression of first dimension line. (default=0)
+        Zero suppression for alternate units dimension values. (default=0)
 
-.. attribute:: DimStyle.dxf.dimsd2
+    .. attribute:: dxf.dimalttz
 
-    Toggles suppression of second dimension line. (default=0)
+        Zero suppression for alternate units tolerance values. (default=0)
 
-.. attribute:: DimStyle.dxf.dimtolj
+    .. attribute:: dxf.dimfit
 
-    Vertical justification for dimension tolerance text. (default=1)
+        Obsolete, now use DIMATFIT and DIMTMOVE
 
-.. attribute:: DimStyle.dxf.dimaltz
+    .. attribute:: dxf.dimupt
 
-    Zero suppression for alternate units dimension values. (default=0)
+        Controls user placement of dimension line and text. (default=0)
 
-.. attribute:: DimStyle.dxf.dimalttz
+    .. attribute:: dxf.dimatfit
 
-    Zero suppression for alternate units tolerance values. (default=0)
+        Controls placement of text and arrowheads when there is insufficient space between the extension lines. (default=3)
 
-.. attribute:: DimStyle.dxf.dimfit
+    .. attribute:: dxf.dimtxsty
 
-    Obsolete, now use DIMATFIT and DIMTMOVE
+        Text style used for dimension text by name.
 
-.. attribute:: DimStyle.dxf.dimupt
+    .. attribute:: dxf.dimtxsty_handle
 
-    Controls user placement of dimension line and text. (default=0)
+        Text style used for dimension text by handle of STYLE entry.
+        (use :attr:`DimStyle.dxf.dimtxsty` to get/set text style by name)
 
-.. attribute:: DimStyle.dxf.dimatfit
+    .. attribute:: dxf.dimldrblk
 
-    Controls placement of text and arrowheads when there is insufficient space between the extension lines. (default=3)
+        Specify arrowhead used for leaders by name.
 
-.. attribute:: DimStyle.dxf.dimtxsty
+    .. attribute:: dxf.dimldrblk_handle
 
-    Text style used for dimension text by name.
+        Specify arrowhead used for leaders by handle of referenced block.
+        (use :attr:`DimStyle.dxf.dimldrblk` to get/set arrowhead by name)
 
-.. attribute:: DimStyle.dxf.dimtxsty_handle
+    .. attribute:: dxf.dimblk_handle
 
-    Text style used for dimension text by handle of STYLE entry.
-    (use :attr:`DimStyle.dxf.dimtxsty` to get/set text style by name)
+        Block type to use for both arrowheads, handle of referenced block.
+        (use :attr:`DimStyle.dxf.dimblk` to get/set arrowheads by name)
 
-.. attribute:: DimStyle.dxf.dimldrblk
+    .. attribute:: dxf.dimblk1_handle
 
-    Specify arrowhead used for leaders by name.
+        Block type to use for first arrowhead, handle of referenced block.
+        (use :attr:`DimStyle.dxf.dimblk1` to get/set arrowhead by name)
 
-.. attribute:: DimStyle.dxf.dimldrblk_handle
+    .. attribute:: dxf.dimblk2_handle
 
-    Specify arrowhead used for leaders by handle of referenced block.
-    (use :attr:`DimStyle.dxf.dimldrblk` to get/set arrowhead by name)
+        Block type to use for second arrowhead, handle of referenced block.
+        (use :attr:`DimStyle.dxf.dimblk2` to get/set arrowhead by name)
 
-.. attribute:: DimStyle.dxf.dimblk_handle
+    .. attribute:: dxf.dimlwd
 
-    Block type to use for both arrowheads, handle of referenced block.
-    (use :attr:`DimStyle.dxf.dimblk` to get/set arrowheads by name)
+        Lineweight value for dimension lines. (default=-2, BYBLOCK)
 
-.. attribute:: DimStyle.dxf.dimblk1_handle
+    .. attribute:: dxf.dimlwe
 
-    Block type to use for first arrowhead, handle of referenced block.
-    (use :attr:`DimStyle.dxf.dimblk1` to get/set arrowhead by name)
+        Lineweight value for extension lines. (default=-2, BYBLOCK)
 
-.. attribute:: DimStyle.dxf.dimblk2_handle
+    .. attribute:: dxf.dimltype
 
-    Block type to use for second arrowhead, handle of referenced block.
-    (use :attr:`DimStyle.dxf.dimblk2` to get/set arrowhead by name)
+        Specifies the linetype used for the dimension line as linetype name, requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimlwd
+    .. attribute:: dxf.dimltype_handle
 
-    Lineweight value for dimension lines. (default=-2, BYBLOCK)
+        Specifies the linetype used for the dimension line as handle to LTYPE entry, requires DXF R2007+
+        (use :attr:`DimStyle.dxf.dimltype` to get/set linetype by name)
 
-.. attribute:: DimStyle.dxf.dimlwe
+    .. attribute:: dxf.dimltex1
 
-    Lineweight value for extension lines. (default=-2, BYBLOCK)
+        Specifies the linetype used for the extension line 1 as linetype name, requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimltype
+    .. attribute:: dxf.dimlex1_handle
 
-    Specifies the linetype used for the dimension line as linetype name, requires DXF R2007+
+        Specifies the linetype used for the extension line 1 as handle to LTYPE entry, requires DXF R2007+
+        (use :attr:`DimStyle.dxf.dimltex1` to get/set linetype by name)
 
-.. attribute:: DimStyle.dxf.dimltype_handle
+    .. attribute:: dxf.dimltex2
 
-    Specifies the linetype used for the dimension line as handle to LTYPE entry, requires DXF R2007+
-    (use :attr:`DimStyle.dxf.dimltype` to get/set linetype by name)
+        Specifies the linetype used for the extension line 2 as linetype name, requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimltex1
+    .. attribute:: dxf.dimlex2_handle
 
-    Specifies the linetype used for the extension line 1 as linetype name, requires DXF R2007+
+        Specifies the linetype used for the extension line 2 as handle to LTYPE entry, requires DXF R2007+
+        (use :attr:`DimStyle.dxf.dimltex2` to get/set linetype by name)
 
-.. attribute:: DimStyle.dxf.dimlex1_handle
+    .. attribute:: dxf.dimfxlon
 
-    Specifies the linetype used for the extension line 1 as handle to LTYPE entry, requires DXF R2007+
-    (use :attr:`DimStyle.dxf.dimltex1` to get/set linetype by name)
+        Extension line has fixed length if set to 1, requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimltex2
+    .. attribute:: dxf.dimfxl
 
-    Specifies the linetype used for the extension line 2 as linetype name, requires DXF R2007+
+        Length of extension line below dimension line if fixed (:attr:`DimStyle.dxf.dimtfxlon` == 1),
+        :attr:`DimStyle.dxf.dimexen` defines the the length above the dimension line, requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimlex2_handle
+    .. attribute:: dxf.dimtfill
 
-    Specifies the linetype used for the extension line 2 as handle to LTYPE entry, requires DXF R2007+
-    (use :attr:`DimStyle.dxf.dimltex2` to get/set linetype by name)
+        Text fill 0=off; 1=background color; 2=custom color (see :attr:`DimStyle.dxf.dimtfillclr`), requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimfxlon
+    .. attribute:: dxf.dimtfillclr
 
-    Extension line has fixed length if set to 1, requires DXF R2007+
+        Text fill custom color as color index (1-255), requires DXF R2007+
 
-.. attribute:: DimStyle.dxf.dimfxl
+    .. automethod:: copy_to_header(dwg: Drawing) -> None
 
-    Length of extension line below dimension line if fixed (:attr:`DimStyle.dxf.dimtfxlon` == 1),
-    :attr:`DimStyle.dxf.dimexen` defines the the length above the dimension line, requires DXF R2007+
+    .. automethod:: set_arrows
 
-.. attribute:: DimStyle.dxf.dimtfill
+    .. automethod:: set_tick
 
-    Text fill 0=off; 1=background color; 2=custom color (see :attr:`DimStyle.dxf.dimtfillclr`), requires DXF R2007+
+    .. automethod:: set_text_align
 
-.. attribute:: DimStyle.dxf.dimtfillclr
+    .. automethod:: set_text_format
 
-    Text fill custom color as color index (1-255), requires DXF R2007+
+    .. automethod:: set_dimline_format
 
-DimStyle Methods
-----------------
+    .. automethod:: set_extline_format
 
-.. method:: DimStyle.copy_to_header(dwg):
+    .. automethod:: set_extline1
 
-    Copy all dimension style variables to HEADER section of `dwg`.
+    .. automethod:: set_extline2
 
-.. method:: DimStyle.set_arrows(blk='', blk1='', blk2=''):
+    .. automethod:: set_tolerance
 
-    Set arrows by block names or AutoCAD standard arrow names, set `DIMTSZ` to 0,
-    which disables tick.
+    .. automethod:: set_limits
 
-    :param str blk: block/arrow name for both arrows, if `DIMSAH` == 0
-    :param str blk1: block/arrow name for first arrow, if `DIMSAH` == 1
-    :param str blk2: block/arrow name for second arrow, if `DIMSAH` == 1
-
-.. method:: DimStyle.set_tick(size=1):
-
-    Set tick `size`, which also disables arrows, a tick is just an oblique stroke as marker.
-
-.. method:: DimStyle.set_text_align(halign=None, valign=None):
-
-    Set measurement text alignment, `halign` defines the horizontal alignment (requires DXFR2000+),
-    `valign` defines the vertical  alignment, ``above1`` and ``above2`` means above extension line 1 or 2 and aligned
-    with extension line.
-
-    :param str halign: ``above``, ``center``, ``below``, ``above1``, ``above2`` (set `DIMJUST`), requires DXF R2000+
-    :param str valign: ``left``, ``right`` or ``center`` (set `DIMTAD`)
-
-.. method:: DimStyle.set_text_format(prefix='', postfix='', rnd=None, dec=None, sep=None,
-                                     leading_zeros=True, trailing_zeros=True):
-
-    Set dimension text format, like prefix and postfix string, rounding rule and number of decimal places.
-
-    :param str prefix: Dimension text prefix text as string
-    :param str postfix: Dimension text postfix text as string
-    :param float rnd: Rounding value for decimal dimensions, see :attr:`DimStyle.dxf.dimrnd`
-    :param int dec: Sets the number of decimal places displayed for the primary units of a dimension. requires DXF R2000+
-    :param str sep: "." or "," as decimal separator requires DXF R2000+
-    :param bool leading_zeros: Suppress leading zeros for decimal dimensions if False
-    :param bool trailing_zeros: Suppress trailing zeros for decimal dimensions if False
-
-.. method:: DimStyle.set_dimline_format(color=None, linetype=None, lineweight=None,
-            extension=None, disable1=None, disable2=None)
-
-    Set dimension line properties
-
-    :param int color: color index
-    :param str linetype: linetype as string, requires DXF R2007+
-    :param int lineweight: line weight as int, 13 = 0.13mm, 200 = 2.00mm, requires DXF R2000+
-    :param float extension: extension length
-    :param bool disable1: True to suppress first part of dimension line, requires DXF R2000+
-    :param bool disable2: True to suppress second part of dimension line, requires DXF R2000+
-
-.. method:: DimStyle.set_extline_format(color=None, lineweight=None, extension=None,
-                           offset=None, fixed_length=None):
-
-    Set common extension line attributes.
-
-    :param int color: color index
-    :param str lineweight: line weight as int, 13 = 0.13mm, 200 = 2.00mm
-    :param float extension: extension length above dimension line
-    :param float offset: offset from measurement point
-    :param float fixed_length: set fixed length extension line, length below the dimension line
-
-.. method:: DimStyle.set_extline1(linetype=None, disable=False)
-
-    Set extension line 1 attributes.
-
-    :param str linetype: linetype for extension line 1, requires DXF R2007+
-    :param bool disable: disable extension line 1 if True
-
-.. method:: DimStyle.set_extline2(linetype=None, disable=False)
-
-    Set extension line 2 attributes.
-
-    :param str linetype: linetype for extension line 2, requires DXF R2007+
-    :param bool disable: disable extension line 2 if True
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-F2FAD36F-0CE3-4943-9DAD-A9BCD2AE81DA

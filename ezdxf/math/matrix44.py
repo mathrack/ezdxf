@@ -23,6 +23,17 @@ def floats(items: Iterable) -> List[float]:
 
 
 class Matrix44:
+    """
+    This is a pure Python implementation for 4x4 transformation matrices, to avoid dependency to big numerical packages
+    like :mod:`numpy`, before binary wheels, installation of these packages wasn't always easy on Windows.
+
+    Matrix44 initialization:
+
+        - ``Matrix44()`` returns the identity matrix.
+        - ``Matrix44(values)`` values is an iterable with the 16 components of the matrix.
+        - ``Matrix44(row1, row2, row3, row4)`` four rows, each row with four values.
+
+    """
     _identity = (
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
@@ -47,11 +58,9 @@ class Matrix44:
         """
         Reset matrix values.
 
-        set() creates the identity matrix.
-
-        set(values) values is an iterable with the 16 components of the matrix.
-
-        set(row1, row2, row3, row4) four rows, each row with four values.
+            - ``set()`` creates the identity matrix.
+            - ``set(values)`` values is an iterable with the 16 components of the matrix.
+            - ``set(row1, row2, row3, row4)`` four rows, each row with four values.
 
         """
         nargs = len(args)
@@ -67,6 +76,9 @@ class Matrix44:
             raise ValueError("Invalid matrix count")
 
     def __repr__(self) -> str:
+        """ Returns the representation string of the matrix:
+        ``Matrix44((col0, col1, col2, col3), (...), (...), (...))``
+        """
         def format_row(row):
             return "(%s)" % ", ".join(str(value) for value in row)
 
@@ -74,16 +86,33 @@ class Matrix44:
                ", ".join(format_row(row) for row in self.rows())
 
     def get_row(self, row: int) -> Tuple4Float:
+        """ Get row as list of of four float values.
+
+        Args:
+            row: row index [0 .. 3]
+
+        """
         index = row * 4
         return tuple(self.matrix[index:index + 4])
 
     def set_row(self, row: int, values: Sequence[float]) -> None:
+        """
+        Sets the values in a row.
+
+        Args:
+            row: row index [0 .. 3]
+            values: iterable of four row values
+
+        """
         index = row * 4
         self.matrix[index:index + len(values)] = floats(values)
 
     def get_col(self, col: int) -> Tuple4Float:
         """
         Returns a column as a tuple of four floats.
+
+        Args:
+            col: column index [0 .. 3]
         """
         m = self.matrix
         return m[col], m[col + 4], m[col + 8], m[col + 12]
@@ -91,6 +120,11 @@ class Matrix44:
     def set_col(self, col: int, values: Sequence[float]):
         """
         Sets the values in a column.
+
+        Args:
+            col: column index [0 .. 3]
+            values: iterable of four column values
+
         """
         m = self.matrix
         a, b, c, d = values
@@ -100,6 +134,7 @@ class Matrix44:
         m[col + 12] = float(d)
 
     def copy(self) -> 'Matrix44':
+        """ Copy of :class:`Matrix` """
         return self.__class__(self.matrix)
 
     __copy__ = copy
@@ -107,7 +142,7 @@ class Matrix44:
     @classmethod
     def scale(cls, sx: float, sy: float = None, sz: float = None) -> 'Matrix44':
         """
-        Returns a scaling transformation matrix. If sy is None, sy = sx, and if sz is None sz = sx.
+        Returns a scaling transformation matrix. If `sy` is ``None``, `sy` = `sx`, and if `sz` is ``None`` `sz` = `sx`.
 
         """
         if sy is None:
@@ -123,16 +158,16 @@ class Matrix44:
         ])
 
     @classmethod
-    def translate(cls, x: float, y: float, z: float) -> 'Matrix44':
+    def translate(cls, dx: float, dy: float, dz: float) -> 'Matrix44':
         """
-        Returns a translation matrix to (x, y, z).
+        Returns a translation matrix for translation vector (dx, dy, dz).
 
         """
         return cls([
             1., 0., 0., 0.,
             0., 1., 0., 0.,
             0., 0., 1., 0.,
-            float(x), float(y), float(z), 1.
+            float(dx), float(dy), float(dz), 1.
         ])
 
     @classmethod
@@ -192,10 +227,10 @@ class Matrix44:
     @classmethod
     def axis_rotate(cls, axis: 'Vertex', angle: float) -> 'Matrix44':
         """
-        Returns a rotation matrix about an arbitrary axis.
+        Returns a rotation matrix about an arbitrary `axis`.
 
         Args:
-            axis: rotation axis as (x, y, z) tuple
+            axis: rotation axis as ``(x, y, z)`` tuple or :class:`Vector` object
             angle: rotation angle in radians
 
         """
@@ -241,7 +276,7 @@ class Matrix44:
     def perspective_projection(cls, left: float, right: float, top: float, bottom: float, near: float,
                                far: float) -> 'Matrix44':
         """
-        Returns a matrix for a 2d projection.
+        Returns a matrix for a 2D projection.
 
         Args:
             left: Coordinate of left of screen
@@ -262,7 +297,7 @@ class Matrix44:
     @classmethod
     def perspective_projection_fov(cls, fov: float, aspect: float, near: float, far: float) -> 'Matrix44':
         """
-        Returns a matrix for a 2d projection.
+        Returns a matrix for a 2D projection.
 
         Args:
             fov: The field of view (in radians)
@@ -281,7 +316,7 @@ class Matrix44:
     @staticmethod
     def chain(*matrices: Iterable['Matrix44']) -> 'Matrix44':
         """
-        Compose a transformation matrix from one or more matrices.
+        Compose a transformation matrix from one or more `matrices`.
 
         """
         transformation = Matrix44()
@@ -293,17 +328,15 @@ class Matrix44:
     def ucs(ux: 'Vertex', uy: 'Vertex', uz: 'Vertex') -> 'Matrix44':
         """
         Returns a matrix for coordinate transformation from WCS to UCS.
-        Origin of both systems is (0, 0, 0).
+        Origin of both systems is ``(0, 0, 0)``.
         For transformation from UCS to WCS, transpose the returned matrix.
 
-        All vectors as (x, y, z) tuples.
+        All vectors as ``(x, y, z)`` tuples or :class:`Vector` objects.
 
         Args:
             ux: x-axis for UCS as unit vector
             uy: y-axis for UCS as unit vector
             uz: z-axis for UCS as unit vector
-
-        Returns: Matrix44() object.
 
         """
         ux_x, ux_y, ux_z = ux
@@ -317,22 +350,23 @@ class Matrix44:
         ))
 
     def __hash__(self) -> int:
+        """ Returns hash value of matrix. """
         return self.matrix.__hash__()
 
-    def __setitem__(self, coord: Tuple[int, int], value: float):
+    def __setitem__(self, index: Tuple[int, int], value: float):
         """
         Set (row, column) element.
 
         """
-        row, col = coord
+        row, col = index
         self.matrix[row * 4 + col] = float(value)
 
-    def __getitem__(self, coord: Tuple[int, int]):
+    def __getitem__(self, index: Tuple[int, int]):
         """
         Get (row, column) element.
 
         """
-        row, col = coord
+        row, col = index
         return self.matrix[row * 4 + col]
 
     def __iter__(self) -> Iterable[float]:
@@ -386,7 +420,7 @@ class Matrix44:
         Multiplies this matrix with other matrix.
 
         Assumes that both matrices have a right column of (0, 0, 0, 1). This is True for matrices composed of
-        rotations,  translations and scales. fast_mul is approximately 25% quicker than the *= operator.
+        rotations,  translations and scales. fast_mul is approximately 25% quicker than the ``*=`` operator.
 
         """
         m1 = self.matrix
@@ -430,7 +464,7 @@ class Matrix44:
 
     def transform(self, vector: 'Vertex') -> Tuple[float, float, float]:
         """
-        Transforms a 3d vector and return the result as a tuple.
+        Transforms a 3D vector and returns the result as a tuple.
 
         """
         m = self.matrix
@@ -482,6 +516,7 @@ class Matrix44:
         return matrix
 
     def determinant(self) -> float:
+        """ Returns determinant. """
         e11, e12, e13, e14, \
         e21, e22, e23, e24, \
         e31, e32, e33, e34, \
@@ -497,7 +532,9 @@ class Matrix44:
         """
         Calculates the inverse of the matrix.
 
-        Raises ZeroDivisionError if matrix has no inverse.
+        Raises:
+             ZeroDivisionError: if matrix has no inverse.
+
         """
         det = self.determinant()
         f = 1. / det  # catch ZeroDivisionError by caller

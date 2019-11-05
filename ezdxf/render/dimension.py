@@ -10,7 +10,7 @@ from ezdxf.options import options
 from ezdxf.lldxf.const import DXFValueError, DXFUndefinedBlockError
 from ezdxf.tools import suppress_zeros
 from ezdxf.render.arrows import ARROWS, connection_point
-from ezdxf.dimstyleoverride import DimStyleOverride
+from ezdxf.entities.dimstyleoverride import DimStyleOverride
 
 if TYPE_CHECKING:
     from ezdxf.eztypes import Dimension, Vertex, Drawing, GenericLayoutType, Style
@@ -506,7 +506,7 @@ class BaseDimensionRenderer:
         Args:
             location: text midpoint
             leader: use leader or not (movement rules)
-            relative: is location absolut (in UCS) or relative to dimension line center.
+            relative: is location absolute (in UCS) or relative to dimension line center.
 
         """
         self.dim_style.set_location(location, leader, relative)
@@ -1163,7 +1163,7 @@ class LinearDimension(BaseDimensionRenderer):
 class DimensionRenderer:
     def dispatch(self, override: 'DimStyleOverride', ucs: 'UCS') -> BaseDimensionRenderer:
         dimension = override.dimension
-        dim_type = dimension.dim_type
+        dim_type = dimension.dimtype
 
         if dim_type in (0, 1):
             return self.linear(dimension, ucs, override)

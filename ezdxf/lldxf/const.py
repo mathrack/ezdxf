@@ -2,20 +2,42 @@
 # Created: 10.03.2011
 # Copyright (c) 2011-2018, Manfred Moitzi
 # License: MIT License
+from enum import IntEnum
+
+DXF12 = 'AC1009'
+DXF13 = 'AC1012'
+DXF14 = 'AC1014'
+DXF2000 = 'AC1015'
+DXF2004 = 'AC1018'
+DXF2007 = 'AC1021'
+DXF2010 = 'AC1024'
+DXF2013 = 'AC1027'
+DXF2018 = 'AC1032'
 
 acad_release = {
-    'AC1009': 'R12',
-    'AC1012': 'R13',
-    'AC1014': 'R14',
-    'AC1015': 'R2000',
-    'AC1018': 'R2004',
-    'AC1021': 'R2007',
-    'AC1024': 'R2010',
-    'AC1027': 'R2013',
-    'AC1032': 'R2018',
+    DXF12: 'R12',
+    DXF13: 'R13',
+    DXF14: 'R14',
+    DXF2000: 'R2000',
+    DXF2004: 'R2004',
+    DXF2007: 'R2007',
+    DXF2010: 'R2010',
+    DXF2013: 'R2013',
+    DXF2018: 'R2018',
 }
 
-versions_supported_by_new = ['AC1009', 'AC1015', 'AC1018', 'AC1021', 'AC1024', 'AC1027', 'AC1032']
+acad_maint_ver = {
+    DXF12: 0,
+    DXF2000: 6,
+    DXF2004: 0,
+    DXF2007: 25,
+    DXF2010: 6,
+    DXF2013: 105,
+    DXF2018: 4,
+}
+
+versions_supported_by_new = [DXF12, DXF2000, DXF2004, DXF2007, DXF2010, DXF2013, DXF2018]
+versions_supported_by_save = versions_supported_by_new
 LATEST_DXF_VERSION = versions_supported_by_new[-1]
 
 acad_release_to_dxf_version = {
@@ -40,10 +62,17 @@ class DXFXDataError(DXFStructureError):
 
 
 class DXFVersionError(DXFError):
+    """ Errors related to features not supported by the chosen DXF Version """
     pass
 
 
 class DXFInternalEzdxfError(DXFError):
+    """ Indicates internal errors -  should be fixed by mozman """
+    pass
+
+
+class DXFUnsupportedFeature(DXFError):
+    """ Indicates unsupported features for DXFEntities e.g. translation for ACIS data """
     pass
 
 
@@ -83,6 +112,10 @@ class DXFInvalidLayerName(DXFValueError):
     pass
 
 
+class DXFInvalidLineType(DXFValueError):
+    pass
+
+
 class DXFBlockInUseError(DXFValueError):
     pass
 
@@ -97,6 +130,11 @@ XDATA_MARKER = 1001
 COMMENT_MARKER = 999
 STRUCTURE_MARKER = 0
 HEADER_VAR_MARKER = 9
+ACAD_REACTORS = '{ACAD_REACTORS'
+ACAD_XDICTIONARY = '{ACAD_XDICTIONARY'
+XDICT_HANDLE_CODE = 360
+REACTOR_HANDLE_CODE = 330
+OWNER_CODE = 330
 
 # Special tag codes for internal purpose
 # -1 to -5 id reserved by AutoCAD for internal use, but this tags will never be saved to file.
@@ -200,6 +238,7 @@ TEXT_ALIGNMENT_BY_FLAGS = dict((flags, name) for name, flags in TEXT_ALIGN_FLAGS
 LEFT = 0
 CENTER = 1
 RIGHT = 2
+BASELINE = 0
 BOTTOM = 1
 MIDDLE = 2
 TOP = 3
@@ -365,10 +404,10 @@ class Error:
     INVALID_LAYER_NAME = 200
     INVALID_COLOR_INDEX = 201
     INVALID_OWNER_HANDLE = 202
-    INVALID_GROUP_CODE_IN_CLASS_DEFINITION = 203
 
 
-INVALID_LAYER_NAME_CHARACTERS = frozenset(['<', '>', '/', '\\', '"', ':', ';', '?', '*', '|', '=', '`'])
+INVALID_NAME_CHARACTERS = '<>/\\":;?*|=`'
+INVALID_LAYER_NAME_CHARACTERS = set(INVALID_NAME_CHARACTERS)
 
 STD_SCALES = {
     1: (1. / 128., 12.),
@@ -416,7 +455,28 @@ RASTER_UNITS = {
     'mi': 8,
 }
 
-LAYOUT_NAMES = ('*paper_space', '$paper_space', '*model_space', '$model_space')
+MODEL_SPACE_R2000 = '*Model_Space'
+MODEL_SPACE_R12 = '$Model_Space'
+PAPER_SPACE_R2000 = '*Paper_Space'
+PAPER_SPACE_R12 = '$Paper_Space'
+TMP_PAPER_SPACE_NAME = '*Paper_Space999999'
+
+MODEL_SPACE = {
+    MODEL_SPACE_R2000.lower(),
+    MODEL_SPACE_R12.lower(),
+}
+
+PAPER_SPACE = {
+    PAPER_SPACE_R2000.lower(),
+    PAPER_SPACE_R12.lower(),
+}
+
+LAYOUT_NAMES = {
+    PAPER_SPACE_R2000.lower(),
+    PAPER_SPACE_R12.lower(),
+    MODEL_SPACE_R2000.lower(),
+    MODEL_SPACE_R12.lower(),
+}
 
 
 class SortEntities:
@@ -443,3 +503,31 @@ DIMTAD = {
     'center': 0,
     'below': 4,
 }
+
+
+class InsertUnits(IntEnum):
+    Unitless = 0
+    Inches = 1
+    Feet = 2
+    Miles = 3
+    Millimeters = 4
+    Centimeters = 5
+    Meters = 6
+    Kilometers = 7
+    Microinches = 8
+    Mils = 9
+    Yards = 10
+    Angstroms = 11
+    Nanometers = 12
+    Microns = 13
+    Decimeters = 14
+    Decameters = 15
+    Hectometers = 16
+    Gigameters = 17
+    AstronomicalUnits = 18
+    Lightyears = 19
+    Parsecs = 20
+    USSurveyFeet = 21
+    USSurveyInch = 22
+    USSurveyYard = 23
+    USSurveyMile = 24

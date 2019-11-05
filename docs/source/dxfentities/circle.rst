@@ -1,22 +1,30 @@
 Circle
 ======
 
-.. class:: Circle(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-A circle at location *center* and *radius*, *dxftype* is CIRCLE.
-Create circles in layouts and blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_circle`.
+CIRCLE (`DXF Reference`_) center at location :attr:`dxf.center` and radius of :attr:`dxf.radius`.
 
-DXF Attributes for Circle
--------------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 ``'CIRCLE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_circle`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+======================== ==========================================
 
-:ref:`Common DXF attributes for DXF R12`
+.. warning::
 
-:ref:`Common DXF attributes for DXF R13 or later`
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-.. attribute:: Circle.dxf.center
+.. class:: Circle
 
-center point of circle (2D/3D Point in :ref:`OCS`)
+    .. attribute:: dxf.center
 
-.. attribute:: Circle.dxf.radius
+        Center point of circle (2D/3D Point in :ref:`OCS`)
 
-radius of circle (float)
+    .. attribute:: dxf.radius
+
+        Radius of circle (float)
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-8663262B-222C-414D-B133-4A8506A27C18

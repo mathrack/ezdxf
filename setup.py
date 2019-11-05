@@ -43,16 +43,16 @@ setup(
     python_requires='>=3.5',
     packages=find_packages(),
     zip_safe=False,
-    package_data={'ezdxf': ['templates/*.dxf', 'pp/*.html', 'pp/*.js', 'pp/*.css', ]},
+    package_data={'ezdxf': ['pp/*.html', 'pp/*.js', 'pp/*.css', ]},
     entry_points={
         'console_scripts': [
             'dxfpp = ezdxf.pp.__main__:main',  # DXF Pretty Printer
-            'dxfaudit = ezdxf.audit.__main__:main',  # DXF Audit
         ]
     },
     provides=['ezdxf'],
-    tests_require=['pytest'],
     install_requires=['pyparsing>=2.0.1'],
+    setup_requires=['wheel'],
+    tests_require=['pytest'],
     keywords=['DXF', 'CAD'],
     long_description=read('README.md')+read('NEWS.md', until='Version 0.7.9'),
     long_description_content_type="text/markdown",
@@ -66,9 +66,16 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ]
 )
+
+# Development Status :: 3 - Alpha
+# Development Status :: 4 - Beta
+# Development Status :: 5 - Production/Stable
+# Development Status :: 6 - Mature
+# Development Status :: 7 - Inactive

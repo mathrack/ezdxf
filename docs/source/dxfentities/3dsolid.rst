@@ -1,37 +1,34 @@
-
-3DSolid
+Solid3d
 =======
 
-.. class:: 3DSolid(Body)
+.. module:: ezdxf.entities
+    :noindex:
 
-Introduced in DXF version R13 (AC1012), dxftype is 3DSOLID.
+3DSOLID (`DXF Reference`_) created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
 
-A 3D object created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
-Create :class:`3DSolid` objects in layouts and blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_3dsolid`.
+`ezdxf` will never interpret ACIS source code, don't ask me for this feature.
 
-DXF Attributes for 3DSolid
---------------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Body`
+DXF type                 ``'3DSOLID'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_3dsolid`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-:ref:`Common DXF attributes for DXF R13 or later`
+.. warning::
 
-.. attribute:: 3DSolid.dxf.history
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-Handle to history object, see: :ref:`low_level_access_to_dxf_entities`
+.. class:: Solid3d
 
-3DSolid Methods
----------------
+    Same attributes and methods as parent class :class:`Body`.
 
-.. method:: 3DSolid.get_acis_data()
+    .. attribute:: dxf.history_handle
 
-    Get the ACIS source code as a list of strings.
+        Handle to history object.
 
-.. method:: 3DSolid.set_acis_data(test_lines)
-
-    Set the ACIS source code as a list of strings **without** line endings.
-
-.. method:: 3DSolid.edit_data()
-
-    Context manager for  ACIS text lines, returns :class:`ModelerGeometryData`.
 
 .. _Spatial Corp.: http://www.spatial.com/products/3d-acis-modeling
 
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-19AB1C40-0BE0-4F32-BCAB-04B37044A0D3

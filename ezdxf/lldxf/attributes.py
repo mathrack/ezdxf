@@ -4,7 +4,7 @@ from collections import namedtuple
 from enum import Enum
 from typing import Any, Tuple, Iterable, List, Dict, Union, ItemsView, KeysView, TYPE_CHECKING
 
-from .const import DXFAttributeError, DXFValueError, DXFInternalEzdxfError, DXFStructureError
+from .const import DXFAttributeError, DXFValueError, DXFInternalEzdxfError, DXFStructureError, DXF12
 from .types import dxftag, DXFVertex
 from .tags import Tags
 from .extendedtags import ExtendedTags
@@ -47,21 +47,31 @@ class DXFAttr:
                  subclass: int = 0,
                  xtype: XType = None,
                  default=None,
-                 dxfversion: str = None,
+                 optional=False,
+                 dxfversion: str = DXF12,
                  getter: str = None,  # name of getter method
                  setter: str = None,  # name of setter method
+                 alias: str = None,  # alias name
                  ):
         self.name = ''  # type: str  # set by DXFAttributes._add_subclass_attribs()
         self.code = code  # DXF group code
         self.subclass = subclass  # subclass index
         self.xtype = xtype  # Point2D, Point3D, Point2D/3D, Callback
         self.default = default  # type: TagValue # DXF default value
+        self.optional = optional  # this value is only written if set
 
         # If dxfversion is None - this attribute is valid for all supported DXF versions, set dxfversion to a specific
         # DXF version like 'AC1018' and this attribute can only be set by DXF version 'AC1018' or later.
         self.dxfversion = dxfversion
         self.getter = getter  # DXF entity getter method name for callback attributes
         self.setter = setter  # DXF entity setter method name for callback attributes
+        self.alias = alias
+
+    def __str__(self):
+        return "({}, {})".format(self.name, self.code)
+
+    def __repr__(self):
+        return "DXFAttr" + self.__str__()
 
     def get_callback_value(self, entity: 'DXFEntity') -> 'TagValue':
         """
@@ -118,7 +128,7 @@ class DXFAttr:
         except DXFValueError:
             if default is DXFValueError:
                 # no DXF default values if DXF version is incorrect
-                if self.dxfversion is not None and entity.drawing.dxfversion < self.dxfversion:
+                if self.dxfversion > DXF12 and entity.drawing.dxfversion < self.dxfversion:
                     msg = "DXFAttrib '{0}' not supported by DXF version '{1}', requires at least DXF version '{2}'."
                     raise DXFValueError(msg.format(key, entity.drawing.dxfversion, self.dxfversion))
                 result = self.default  # default value defined by DXF specs
@@ -167,7 +177,7 @@ class DXFAttr:
             value: attribute value
 
         """
-        if self.dxfversion is not None:
+        if self.dxfversion > DXF12:
             if entity.drawing.dxfversion < self.dxfversion:
                 msg = "DXFAttrib '{0}' not supported by DXF version '{1}', requires at least DXF version '{2}'."
                 raise DXFAttributeError(msg.format(key, entity.drawing.dxfversion, self.dxfversion))

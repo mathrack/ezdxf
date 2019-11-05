@@ -1,142 +1,31 @@
 # Purpose: tables section
 # Created: 12.03.2011
-# Copyright (c) 2011-2018, Manfred Moitzi
+# Copyright (c) 2011-2019, Manfred Moitzi
 # License: MIT License
-from typing import TYPE_CHECKING, Iterable, Sequence, Iterator
-from ezdxf.lldxf.tags import DXFTag
-from ezdxf.lldxf.extendedtags import ExtendedTags
-from ezdxf.lldxf.const import DXFAttributeError, DXFStructureError
-
-from .table import Table, ViewportTable, StyleTable
+from typing import TYPE_CHECKING, Iterable, List
+import logging
+from ezdxf.lldxf.const import DXFStructureError, DXF12
+from .table import Table, ViewportTable, StyleTable, LayerTable
 
 if TYPE_CHECKING:
-    from ezdxf.eztypes import Drawing, TagWriter, Tags
+    from ezdxf.eztypes import TagWriter, Drawing, DXFEntity, DXFTagStorage, DimStyle
 
+logger = logging.getLogger('ezdxf')
 
-class TablesSection:
-    name = 'TABLES'
-
-    def __init__(self, entities: Iterable[Sequence[DXFTag]], drawing: 'Drawing'):
-        self._drawing = drawing
-        self._tables = {}
-        if entities is None:
-            section_head = [DXFTag(0, 'SECTION'), DXFTag(2, 'TABLES')]
-            entities = [section_head]
-        self._setup_tables(iter(entities))
-
-    def __iter__(self) -> Iterable[Table]:
-        return iter(self._tables.values())
-
-    @staticmethod
-    def key(name: str) -> str:
-        return name.upper()
-
-    def _setup_tables(self, entities: Iterator[Sequence[DXFTag]]) -> None:
-        section_head = next(entities)
-        if section_head[0] != (0, 'SECTION') or section_head[1] != (2, 'TABLES'):
-            raise DXFStructureError("Critical structure error in TABLES section.")
-
-        table_entities = []
-        table_name = None
-        for entity in entities:
-            if isinstance(entity, ExtendedTags):
-                entity = entity.noclass
-            if entity[0] == (0, 'TABLE'):
-                table_entities = [entity]  # collect table head!
-                if len(entity) < 2 or entity[1].code != 2:
-                    raise DXFStructureError(
-                        'DXFStructureError: missing required table name tag (2, name) at start of table.')
-                table_name = entity[1].value
-            elif entity[0] == (0, 'ENDTAB'):  # do not collect (0, 'ENDTAB')
-                self._new_table(table_name, table_entities)
-                table_entities = []  # collect entities outside of tables, but ignore it
-                table_name = None
-            else:  # collect table entries
-                table_entities.append(entity)
-
-        self._create_missing_tables()
-
-    def _new_table(self, name: str, table_entities: Iterable['Tags']) -> None:
-        table_class = TABLESMAP[name]
-        new_table = table_class(table_entities, self._drawing)
-        self._tables[self.key(new_table.name)] = new_table
-
-    def _setup_table(self, name):
-        """
-        Setup new empty table.
-
-        Args:
-            name: real table name like 'VPORT' for viewports
-
-        """
-        name = self.key(name)
-        if self._drawing is not None:
-            dxfversion = self._drawing.dxfversion
-            handle = self._drawing.entitydb.get_unique_handle()
-        else:  # test environment without Drawing() object
-            dxfversion = 'AC1009'  # DXF R12
-            handle = '0'
-
-        if dxfversion <= 'AC1009':
-            table_entities = [[
-                DXFTag(0, 'TABLE'),
-                DXFTag(2, name),
-                DXFTag(70, 0)
-            ]]
-        else:
-            table_entities = [[
-                DXFTag(0, 'TABLE'),
-                DXFTag(2, name),
-                DXFTag(5, handle),
-                DXFTag(330, '0'),
-                DXFTag(100, 'AcDbSymbolTable'),
-                DXFTag(70, 0)
-            ]]
-        self._new_table(name, table_entities)
-
-    def _create_missing_tables(self) -> None:
-        if 'LAYERS' not in self:
-            self._setup_table('LAYER')
-        if 'LINETYPES' not in self:
-            self._setup_table('LTYPE')
-        if 'STYLES' not in self:
-            self._setup_table('STYLE')
-        if 'DIMSTYLES' not in self:
-            self._setup_table('DIMSTYLE')
-        if 'VIEWPORTS' not in self:
-            self._setup_table('VPORT')
-        if 'APPIDS' not in self:
-            self._setup_table('APPID')
-        if 'UCS' not in self:
-            self._setup_table('UCS')
-
-    def __contains__(self, item: str) -> bool:
-        return self.key(item) in self._tables
-
-    def __getattr__(self, key: str) -> Table:
-        key = self.key(key)
-        try:
-            return self._tables[key]
-        except KeyError:  # internal exception
-            raise DXFAttributeError(key)
-
-    def __getitem__(self, key: str) -> Table:
-        return self._tables[self.key(key)]
-
-    def __delitem__(self, key: str) -> None:
-        del self._tables[self.key(key)]
-
-    def write(self, tagwriter: 'TagWriter') -> None:
-        tagwriter.write_str('  0\nSECTION\n  2\nTABLES\n')
-        for table_name in TABLE_ORDER:
-            table = self._tables.get(table_name)
-            if table is not None:
-                table.write(tagwriter)
-        tagwriter.write_tag2(0, 'ENDSEC')
-
+TABLENAMES = {
+    'LAYER': 'layers',
+    'LTYPE': 'linetypes',
+    'APPID': 'appids',
+    'DIMSTYLE': 'dimstyles',
+    'STYLE': 'styles',
+    'UCS': 'ucs',
+    'VIEW': 'views',
+    'VPORT': 'viewports',
+    'BLOCK_RECORD': 'block_records',
+}
 
 TABLESMAP = {
-    'LAYER': Table,
+    'LAYER': LayerTable,
     'LTYPE': Table,
     'STYLE': StyleTable,
     'DIMSTYLE': Table,
@@ -147,5 +36,141 @@ TABLESMAP = {
     'BLOCK_RECORD': Table,
 }
 
-# The order of the tables may change, but the LTYPE table always precedes the LAYER table.
-TABLE_ORDER = ('VIEWPORTS', 'LINETYPES', 'LAYERS', 'STYLES', 'VIEWS', 'UCS', 'APPIDS', 'DIMSTYLES', 'BLOCK_RECORDS')
+
+class TablesSection:
+    def __init__(self, doc: 'Drawing', entities: List['DXFEntity'] = None):
+        assert doc is not None
+        self.doc = doc
+        self.layers = None
+        self.linetypes = None
+        self.appids = None
+        self.dimstyles = None
+        self.styles = None
+        self.ucs = None
+        self.views = None
+        self.viewports = None
+        self.block_records = None
+
+        if entities is not None:
+            self._load(entities)
+        self._create_missing_tables()
+
+    def _load(self, entities: List['DXFEntity']) -> None:
+        section_head = entities[0]  # type: DXFTagStorage
+        if section_head.dxftype() != 'SECTION' or section_head.base_class[1] != (2, 'TABLES'):
+            raise DXFStructureError("Critical structure error in TABLES section.")
+        del entities[0]  # delete first entity (0, SECTION)
+
+        table_records = []
+        table_name = None
+        for entity in entities:
+            if entity.dxftype() == 'TABLE':
+                if len(table_records):
+                    # TABLE entity without preceding ENDTAB entity, should we care?
+                    logger.debug('Ignore missing ENDTAB entity in table "{}".'.format(table_name))
+                    self._load_table(table_name, table_records)
+                table_name = entity.dxf.name
+                table_records = [entity]  # collect table head
+            elif entity.dxftype() == 'ENDTAB':  # do not collect (0, 'ENDTAB')
+                self._load_table(table_name, table_records)
+                table_records = []  # collect entities outside of tables, but ignore it
+            else:  # collect table entries
+                table_records.append(entity)
+
+        if len(table_records):
+            # last ENDTAB entity is missing, should we care?
+            logger.debug('Ignore missing ENDTAB entity in table "{}".'.format(table_name))
+            self._load_table(table_name, table_records)
+
+    def _load_table(self, name: str, table_entities: Iterable['DXFEntity']) -> None:
+        """
+        Load table from tags.
+
+        Args:
+            name: table name e.g. VPORT
+            table_entities: iterable of table records
+
+        """
+        table_class = TABLESMAP[name]
+        new_table = table_class(self.doc, table_entities)
+        setattr(self, TABLENAMES[name], new_table)
+
+    def _create_missing_tables(self) -> None:
+        for record_name, table_name in TABLENAMES.items():
+            if getattr(self, table_name) is None:
+                self._create_new_table(record_name, table_name)
+
+    def _create_new_table(self, record_name: str, table_name: str) -> None:
+        """
+        Setup new empty table.
+
+        Args:
+            record_name: table name e.g. VPORT
+            table_name: TableSection attribute name e.g. viewports
+
+        """
+        handle = self.doc.entitydb.next_handle()
+        table_class = TABLESMAP[record_name]
+        table = table_class.new_table(record_name, handle, self.doc)
+        setattr(self, table_name, table)
+
+    def export_dxf(self, tagwriter: 'TagWriter') -> None:
+        tagwriter.write_str('  0\nSECTION\n  2\nTABLES\n')
+        version = tagwriter.dxfversion
+        self.viewports.export_dxf(tagwriter)
+        self.linetypes.export_dxf(tagwriter)
+        self.layers.export_dxf(tagwriter)
+        self.styles.export_dxf(tagwriter)
+        self.views.export_dxf(tagwriter)
+        self.ucs.export_dxf(tagwriter)
+        self.appids.export_dxf(tagwriter)
+        self.dimstyles.export_dxf(tagwriter)
+        if version > DXF12:
+            self.block_records.export_dxf(tagwriter)
+        tagwriter.write_tag2(0, 'ENDSEC')
+
+    def create_table_handles(self):
+        # TABLE requires in DXF12 no handle and has no owner tag, but DXF R2000+, requires a TABLE with handle
+        # and each table entry has an owner tag, pointing to the TABLE entry
+        for name in TABLENAMES.values():
+            table = getattr(self, name.lower())
+            handle = self.doc.entitydb.next_handle()
+            table.set_handle(handle)
+
+    def resolve_dimstyle_names(self):
+        # Handles can't be resolved to names at loading stage.
+        db = self.doc.entitydb
+        for dimstyle in self.dimstyles:  # type: DimStyle
+            for attrib_name in ('dimblk', 'dimblk1', 'dimblk2', 'dimldrblk'):
+                if dimstyle.dxf.hasattr(attrib_name):
+                    continue
+                blkrec_handle = dimstyle.dxf.get(attrib_name + '_handle')
+                if blkrec_handle and blkrec_handle != '0':
+                    try:
+                        name = db[blkrec_handle].dxf.name
+                    except KeyError:
+                        logger.info('Replacing non existing block referenced by handle #{}, by default arrow.'.format(blkrec_handle))
+                        name = ''
+                else:
+                    name = ''  # default arrow
+                dimstyle.dxf.set(attrib_name, name)
+
+            style_handle = dimstyle.dxf.get('dimtxsty', None)
+            if style_handle and style_handle != '0':
+                try:
+                    dimstyle.dxf.dimtxsty = db[style_handle].dxf.name
+                except KeyError:
+                    logger.info('Ignoring non existing text style referenced by handle #{}.'.format(style_handle))
+
+            for attrib_name in ('dimltype', 'dimltex1', 'dimltex2'):
+                lt_handle = dimstyle.dxf.get(attrib_name + '_handle', None)
+                if lt_handle and lt_handle != '0':
+                    try:
+                        name = db[lt_handle].dxf.name
+                    except KeyError:
+                        logger.info('Ignoring non existing line type referenced by handle #{}.'.format(lt_handle))
+                    else:
+                        dimstyle.dxf.set(attrib_name, name)
+
+            # remove all handles, to be sure setting handles for actual names at export
+            dimstyle.discard_handles()

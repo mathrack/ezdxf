@@ -28,7 +28,8 @@ Quick-Info
 - additional read support for older DXF versions than R12 (upgraded to R12)
 - preserves third-party DXF content
 - additional :ref:`r12writer`, that creates just an ENTITIES section with support for the basic DXF entities
-
+- source code generator as add-on to generate Python code from DXF structures as starting point for parametric
+  DXF entity creation from existing DXF files.
 
 Website
 -------
@@ -49,7 +50,9 @@ Issue Tracker at GitHub: http://github.com/mozman/ezdxf/issues
 Questions and Feedback at Google Groups
 ---------------------------------------
 
-https://groups.google.com/d/forum/python-ezdxf
+Please post questions at the `forum <https://groups.google.com/d/forum/python-ezdxf>`_ or
+`stack overflow <https://stackoverflow.com/>`_ to make answers available to other users as well.
+
 
 Contents
 ========
@@ -58,17 +61,19 @@ Contents
    :maxdepth: 2
 
    introduction
-   tutorials
+   tutorials/index
+   concepts/index
    reference
-   render
-   addons
+   render/index
+   addons/index
    howto
-   dxfinternals
+   dxfinternals/index
+   develop/index
+   glossary
 
 Indices and tables
 ------------------
 
 * :ref:`genindex`
 * :ref:`search`
-
 

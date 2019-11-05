@@ -4,7 +4,6 @@
 # License: MIT License
 from typing import Sequence, TYPE_CHECKING, Iterable, List, Set
 from ezdxf.lldxf.tagger import internal_tag_compiler
-from ezdxf.modern import ModernDXFFactory
 
 if TYPE_CHECKING:  # import forward declarations
     from ezdxf.eztypes import DXFTag, EntityDB, ExtendedTags, DXFEntity
@@ -19,21 +18,13 @@ def normlines(text: str) -> Sequence[str]:
     return [line.strip() for line in lines]
 
 
-def load_section(text: str, name: str, database: 'EntityDB' = None, dxfversion='AC1009') -> List['ExtendedTags']:
-    from ezdxf.lldxf.loader import load_dxf_structure, fill_database
+def load_section(text: str, name: str) -> List['ExtendedTags']:
+    from ezdxf.lldxf.loader import load_dxf_structure
     dxf = load_dxf_structure(internal_tag_compiler(text), ignore_missing_eof=True)
-    if database is not None:
-        fill_database(database, dxf, dxfversion)
     return dxf[name]
 
 
-SUPPORTED_ENTITIES = ModernDXFFactory(None).ENTITY_WRAPPERS
-
-
-def find_unsupported_entities(container: Iterable['DXFEntity']) -> Set[str]:
-    unsupported_entities = set()
-    for entity in container:
-        dxftype = entity.dxftype()
-        if dxftype not in SUPPORTED_ENTITIES:
-            unsupported_entities.add(dxftype)
-    return unsupported_entities
+def load_entities(text: str, name: str, doc):
+    from ezdxf.lldxf.loader import load_dxf_structure, load_dxf_entities
+    dxf = load_dxf_structure(internal_tag_compiler(text), ignore_missing_eof=True)
+    return load_dxf_entities(dxf[name], doc.dxffactory)

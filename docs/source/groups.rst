@@ -1,118 +1,90 @@
-Group
-=====
+Groups
+======
 
-A group is just a bunch of DXF entities tied together. All entities of a group has to be on the same layout (model space
+.. module:: ezdxf.entities.dxfgroups
+
+
+A group is just a bunch of DXF entities tied together. All entities of a group has to be on the same layout (modelspace
 or any paper layout but not block). Groups can be named or unnamed, but in reality an unnamed groups has just a special
-name like ``'*Annnn'``. The name of a group has to be unique in the drawing. Groups are organized in the main group table,
-which is an :attr:`Drawing.groups` of the class :class:`Drawing`.
+name like ``*Annnn``. The name of a group has to be unique in the drawing. Groups are organized in the main group table,
+which is stored as attribute :attr:`~ezdxf.drawing.Drawing.groups` in the :class:`~ezdxf.drawing.Drawing` object.
 
-Group entities have to be in model space or any paper layout but not in a block definition!
+Group entities have to be in modelspace or any paperspace layout but not in a block definition!
+
+DXFGroup
+--------
 
 .. class:: DXFGroup
 
-======================= ======= ===========
-DXFAttr                 Version Description
-======================= ======= ===========
-description             R13     group description (string)
-unnamed                 R13     1 for unnamed, 0 for named group (int)
-selectable              R13     1 for selectable, 0 for not selectable group (int)
-======================= ======= ===========
+    The group name is not stored in the GROUP entity, it is stored in the :class:`GroupCollection` object.
 
-   The group name is not stored in the GROUP entity, it is stored in the :class:`DXFGroupTable` object.
+    .. attribute:: dxf.description
 
-.. method:: DXFGroup.__iter__()
+        group description (string)
 
-   Iterate over all DXF entities in this group as instances of :class:`GraphicEntity` or inherited (LINE, CIRCLE, ...).
+    .. attribute:: dxf.unnamed
 
-.. method:: DXFGroup.__len__()
+        ``1`` for unnamed, ``0`` for named group (int)
 
-   Returns the count of DXF entities in this group.
+    .. attribute:: dxf.selectable
 
-.. method:: DXFGroup.__contains__(item)
+        ``1`` for selectable, ``0`` for not selectable group (int)
 
-   Returns `True` if item is in this group else `False`. `item` has to be a handle string or an object of type
-   :class:`GraphicEntity` or inherited.
+    .. automethod:: __iter__
 
-.. method:: DXFGroup.handles()
+    .. automethod:: __len__
 
-   Generator over all entity handles in this group.
+    .. automethod:: __contains__
 
-.. method:: DXFGroup.get_name()
+    .. automethod:: handles
 
-   Get name of the group as `string`.
+    .. automethod:: get_name
 
-.. method:: DXFGroup.edit_data()
+    .. automethod:: edit_data
 
-   Context manager which yields all the group entities as standard Python list::
+    .. automethod:: set_data
 
-    with group.edit_data() as data:
-       # add new entities to a group
-       data.append(modelspace.add_line((0, 0), (3, 0)))
-       # remove last entity from a group
-       data.pop()
+    .. automethod:: extend
 
-.. method:: DXFGroup.set_data(entities)
+    .. automethod:: clear
 
-   Set `entities` as new group content, entities should be iterable and yields instances of :class:`GraphicEntity` or
-   inherited (LINE, CIRCLE, ...).
+    .. automethod:: remove_invalid_handles
 
-.. method:: DXFGroup.extend(entities)
+GroupCollection
+---------------
 
-   Append `entities` to group content, entities should be iterable and yields instances of :class:`GraphicEntity` or
-   inherited (LINE, CIRCLE, ...).
+Each :class:`~ezdxf.drawing.Drawing` has one group table, which is accessible by the attribute
+:attr:`~ezdxf.drawing.Drawing.groups`.
 
-.. method:: DXFGroup.clear()
+.. class:: GroupCollection
 
-   Remove all entities from group.
+    Manages all :class:`DXFGroup` objects of a :class:`~ezdxf.drawing.Drawing`.
 
-.. method:: DXFGroup.remove_invalid_handles()
+    .. method:: __len__() -> int
 
-   Remove invalid handles from group. Invalid handles: deleted entities, entities in a block layout (but not implemented yet)
+       Returns the count of DXF groups.
 
+    .. method:: __iter__()
 
-GroupTable
-==========
+       Iterate over all existing groups as (`name`, `group`) tuples. `name` is the name of the group as string and
+       `group` is an :class:`DXFGroup` object.
 
-There only exists one group table in each drawing, which is accessible by the attribute :attr:`Drawing.groups`.
+    .. method:: __contains__(name: str) -> bool
 
-.. class:: DXFGroupTable
+       Returns ``True`` if a group `name` exist.
 
-.. method:: DXFGroupTable.__iter__()
+    .. method:: get(name: str) -> DXFGroup
 
-   Iterate over all existing groups as `(name, group)` tuples. `name` is the name of the group as `string` and `group`
-   is an object of type :class:`DXFGroup`.
+       Returns the group `name`. Raises :class:`DXFKeyError` if group `name` does not exist.
 
-.. method:: DXFGroupTable.groups()
+    .. automethod:: groups
 
-   Generator over all existing groups, yields just objects of type :class:`DXFGroup`.
+    .. automethod:: new
 
-.. method:: DXFGroupTable.__len__()
+    .. automethod:: delete
 
-   Returns the count of DXF groups.
+    .. method:: clear()
 
-.. method:: DXFGroupTable.__contains__(name)
+       Delete all groups.
 
-   Returns `True` if a group `name` exists else `False`.
-
-.. method:: DXFGroupTable.get(name)
-
-   Returns the group `name` as :class:`DXFGroup` object. Raises ``DXFKeyError`` if no group `name` exists.
-
-.. method:: DXFGroupTable.new(name=None, description="", selectable=1)
-
-   Creates a new group, returns a :class:`DXFGroup` object. If `name` is `None` an unnamed group is created, which has
-   an automatically generated name like ``'*Annnn'``. `description` is the group description as string and `selectable`
-   defines if the group is selectable (selectable=1) or not (selectable=0).
-
-.. method:: DXFGroupTable.delete(group)
-
-   Delete `group`. `group` can be an object of type :class:`DXFGroup` or a group name.
-
-
-.. method:: DXFGroupTable.clear()
-
-   Delete all groups.
-
-.. method:: DXFGroupTable.cleanup()
-
-   Removes invalid handles in all groups and empty groups.
+    .. automethod:: cleanup

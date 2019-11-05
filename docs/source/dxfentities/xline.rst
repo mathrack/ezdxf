@@ -1,23 +1,28 @@
 XLine
 =====
 
-.. class:: XLine(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-Introduced in DXF version R13 (AC1012), dxftype is XLINE.
+XLINE entity (`DXF Reference`_) is a construction line that extents to infinity in both directions.
 
-A line that extents to infinity in both directions, used as construction line. Create :class:`XLine` in layouts and
-blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_xline`.
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 ``'XLINE'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_xline`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-DXF Attributes for XLine
-------------------------
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-55080553-34B6-40AA-9EE2-3F3A3A2A5C0A
 
-:ref:`Common DXF attributes for DXF R13 or later`
+.. class:: XLine
 
-.. attribute:: XLine.dxf.start
+    .. attribute:: dxf.start
 
-Location point of line as (3D Point in :ref:`WCS`)
+    Location point of line as (3D Point in :ref:`WCS`)
 
-.. attribute:: XLine.dxf.unit_vector
+    .. attribute:: dxf.unit_vector
 
-Unit direction vector as (3D Point in :ref:`WCS`)
+    Unit direction vector as (3D Point in :ref:`WCS`)
 

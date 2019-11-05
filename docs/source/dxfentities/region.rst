@@ -1,24 +1,29 @@
 Region
 ======
 
-.. class:: Region(Body)
+.. module:: ezdxf.entities
+    :noindex:
 
-Introduced in DXF version R13 (AC1012), dxftype is REGION.
+REGION (`DXF Reference`_) created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
 
-An object created by an ACIS based geometry kernel provided by the `Spatial Corp.`_
-Create :class:`Region` objects in layouts and blocks by factory function
-:meth:`~ezdxf.modern.layouts.Layout.add_region`.
+`ezdxf` will never interpret ACIS source code, don't ask me for this feature.
 
-.. method:: Region.get_acis_data()
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Body`
+DXF type                 ``'REGION'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_region`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-Get the ACIS source code as a list of strings.
+.. warning::
 
-.. method:: Region.set_acis_data(test_lines)
+    Do not instantiate entity classes by yourself - always use the provided factory functions!
 
-Set the ACIS source code as a list of strings **without** line endings.
+.. class:: Region
 
-.. method:: Region.edit_data()
-
-Context manager for ACIS text lines, returns :class:`ModelerGeometryData`.
+    Same attributes and methods as parent class :class:`Body`.
 
 .. _Spatial Corp.: http://www.spatial.com/products/3d-acis-modeling
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-644BF0F0-FD79-4C5E-AD5A-0053FCC5A5A4

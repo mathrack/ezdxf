@@ -1,113 +1,154 @@
 Underlay
 ========
 
-.. class:: Underlay(GraphicEntity)
+.. module:: ezdxf.entities
+    :noindex:
 
-Introduced in DXF version R13 (AC1012), dxftype is PDFUNDERLAY, DWFUNDERLAY or DGNUNDERLAY.
+UNDERLAY entity (`DXF Reference`_) links an underlay file to the DXF file, the file itself is not embedded into the
+DXF file, it is always a separated file. The (PDF)UNDERLAY entity is like a block reference, you can use it
+multiple times to add the underlay on different locations with different scales and rotations. But therefore
+you need a also a (PDF)DEFINITION entity, see :class:`UnderlayDefinition`.
 
-Add an underlay file to the DXF file, the file itself is not embedded into the DXF file, it is always a separated file.
-The (PDF)UNDERLAY entity is like a block reference, you can use it multiple times to add the underlay on different
-locations with different scales and rotations. But therefore you need a also a (PDF)DEFINITION entity, see
-:class:`UnderlayDefinition`.
-Create :class:`Underlay` in layouts and blocks by factory function :meth:`~ezdxf.modern.layouts.Layout.add_underlay`. The DXF standard
-supports three different fileformats: PDF, DWF (DWFx) and DGN. An Underlay can be clipped by a rectangle or a
-polygon path. The clipping coordinates are 2D OCS/ECS coordinates and in drawing units but without scaling.
+The DXF standard supports three different file formats: PDF, DWF (DWFx) and DGN. An Underlay can be clipped by a
+rectangle or a polygon path. The clipping coordinates are 2D :ref:`OCS` coordinates in drawing units but
+without scaling.
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-3EC8FBCC-A85A-4B0B-93CD-C6C785959077
+
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFGraphic`
+DXF type                 internal base class
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_underlay`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
+
+.. class:: Underlay
+
+    Base class of :class:`PdfUnderlay`, :class:`DwfUnderlay` and :class:`DgnUnderlay`
+
+    .. attribute:: dxf.insert
+
+        Insertion point, lower left corner of the image in :ref:`OCS`.
+
+    .. attribute:: dxf.scale_x
+
+        Scaling factor in x-direction (float)
+
+    .. attribute:: dxf.scale_y
+
+        Scaling factor in y-direction (float)
+
+    .. attribute:: dxf.scale_z
+
+        Scaling factor in z-direction (float)
+
+    .. attribute:: dxf.rotation
+
+        ccw rotation in degrees around the extrusion vector (float)
+
+    .. attribute:: dxf.extrusion
+
+        extrusion vector, default = ``(0, 0, 1)``
+
+    .. attribute:: dxf.underlay_def
+
+        Handle to the underlay definition entity, see :class:`UnderlayDefinition`
+
+    .. attribute:: dxf.flags
+
+        ============================== ======= ===========
+        :attr:`dxf.flags`              Value   Description
+        ============================== ======= ===========
+        UNDERLAY_CLIPPING              1       clipping is on/off
+        UNDERLAY_ON                    2       underlay is on/off
+        UNDERLAY_MONOCHROME            4       Monochrome
+        UNDERLAY_ADJUST_FOR_BACKGROUND 8       Adjust for background
+        ============================== ======= ===========
+
+    .. attribute:: dxf.contrast
+
+        Contrast value (``20`` - ``100``; default = ``100``)
+
+    .. attribute:: dxf.fade
+
+        Fade value (``0`` - ``80``; default = ``0``)
 
 
-DXF Attributes for Underlay
----------------------------
+    .. attribute:: clipping
 
-:ref:`Common DXF attributes for DXF R13 or later`
+        ``True`` or ``False`` (read/write)
 
-.. attribute:: underlay.dxf.insert
+    .. attribute:: on
 
-Insertion point, lower left corner of the image in :ref:`OCS`.
+        ``True`` or ``False`` (read/write)
 
-.. attribute:: underlay.dxf.scale_x
+    .. attribute:: monochrome
 
-scaling factor in x direction (float)
+        ``True`` or ``False`` (read/write)
 
-.. attribute:: underlay.dxf.scale_y
+    .. attribute:: adjust_for_background
 
-scaling factor in y direction (float)
+        ``True`` or ``False`` (read/write)
 
-.. attribute:: underlay.dxf.scale_z
+    .. attribute:: scale
 
-scaling factor in z direction (float)
+        Scaling ``(x, y, z)`` tuple (read/write)
 
-.. attribute:: underlay.dxf.rotation
+    .. attribute:: boundary_path
 
-ccw rotation in degrees around the extrusion vector (float)
+        Boundary path as list of vertices (read/write).
 
-.. attribute:: underlay.dxf.extrusion
+        Two vertices describe a rectangle (lower left and upper right corner), more than two vertices
+        is a polygon as clipping path.
 
-extrusion vector (default=0, 0, 1)
+    .. attribute:: underlay_def
 
-.. attribute:: underlay.dxf.underlay_def
+        Associated DEFINITION entity. see :class:`UnderlayDefinition`.
 
-Handle to the underlay definition entity, see :class:`UnderlayDefinition`
+    .. automethod:: reset_boundary_path()
 
-.. attribute:: underlay.dxf.flags
+PdfUnderlay
+-----------
 
-============================== ======= ===========
-Underlay.dxf.flags             Value   Description
-============================== ======= ===========
-UNDERLAY_CLIPPING              1       clipping is on/off
-UNDERLAY_ON                    2       underlay is on/off
-UNDERLAY_MONOCHROME            4       Monochrome
-UNDERLAY_ADJUST_FOR_BACKGROUND 8       Adjust for background
-============================== ======= ===========
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Underlay`
+DXF type                 ``'PDFUNDERLAY'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_underlay`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-.. attribute:: underlay.dxf.contrast
+.. class:: PdfUnderlay
 
-Contrast value (20-100; default = 100)
+    PDF underlay.
 
-.. attribute:: underlay.dxf.fade
+DwfUnderlay
+-----------
 
-Fade value (0-80; default = 0)
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Underlay`
+DXF type                 ``'DWFUNDERLAY'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_underlay`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
+.. class:: DwfUnderlay
 
-Underlay Attributes
--------------------
+    DWF underlay.
 
+DgnUnderlay
+-----------
 
-.. attribute:: Underlay.clipping
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.Underlay`
+DXF type                 ``'DGNUNDERLAY'``
+Factory function         :meth:`ezdxf.layouts.BaseLayout.add_underlay`
+Inherited DXF attributes :ref:`Common graphical DXF attributes`
+Required DXF version     DXF R2000 (``'AC1015'``)
+======================== ==========================================
 
-True or False (read/write)
+.. class:: DgnUnderlay
 
-.. attribute:: Underlay.on
-
-True or False (read/write)
-
-.. attribute:: Underlay.monochrome
-
-True or False (read/write)
-
-.. attribute:: Underlay.adjust_for_background
-
-True or False (read/write)
-
-.. attribute:: Underlay.scale
-
-Scaling (x, y, z) tuple (read/write)
-
-Underlay Methods
-----------------
-
-.. method:: Underlay.get_boundary()
-
-Returns a list of vertices as pixel coordinates, just two values represent the lower left and the upper right
-corners of the clipping rectangle, more vertices describe a clipping polygon.
-
-.. method:: Underlay.reset_boundary()
-
-Removes the clipping path.
-
-.. method:: Underlay.set_boundary(vertices)
-
-Set boundary path to vertices. 2 points describe a rectangle (lower left and upper right corner), more than 2 points
-is a polygon as clipping path. Sets clipping state to 1.
-
-.. method:: Underlay.get_underlay_def()
-
-returns the associated (PDF)DEFINITION entity. see :class:`UnderlayDefinition`.
+    DGN underlay.

@@ -2,6 +2,81 @@
 News
 ====
 
+Version 0.10.2 - 2019-10-05
+---------------------------
+
+- NEW: `Dimension.get_measurement()` returns the actual dimension measurement in WCS units, no scaling applied; angular 
+  and ordinate dimension are not supported yet. 
+- BUGFIX: ordinate dimension exports wrong feature location
+- BUGFIX: `Hatch.set_pattern_fill()` did not set pattern scale, angle and double values
+
+Version 0.10.1 - 2019-09-07
+---------------------------
+
+- BUGFIX: group code for header var $ACADMAINTVER is 90 for DXF R2018+ and 70 for previous DXF versions. This is a 
+  critical bug because AutoCAD 2012/2013 (and possibly earlier versions) will not open DXF files with the new group 
+  code 90 for header variable $ACADMAINTVER.
+ 
+Version 0.10 - 2019-09-01
+-------------------------
+
+- Release notes: https://ezdxf.mozman.at/release-v0-10.html
+- unified entity system for all DXF versions
+- saving as later DXF version than the source DXF version is possible, but maybe data loss if saving as an older DXF 
+  version than source DXF version (_ezdxf_ is not a DXF converter)
+- templates no more needed and removed from package
+- CHANGE: `DXFEntity`
+    - renamed `DXFEntity.drawing` to `DXFEntity.doc`
+    - `DXFEntity.get_xdata()` keyword `xdata_tag` renamed to `tags`
+    - `DXFEntity.set_xdata()` keyword `xdata_tag` renamed to `tags`
+    - renamed `DXFEntity.remove_reactor_handle()` renamed to `DXFEntity.discard_reactor_handle()`
+    - `DXFEntity.get_extension_dict()` returns `ExtensionDict` object instead of the raw DICTIONARY object
+    - renamed `DXFEntity.supports_dxf_attrib()` to `DXFEntity.is_supported_dxf_attrib()`
+    - renamed `DXFEntity.dxf_attrib_exists()` to `DXFEntity.has_dxf_attrib()`
+- CHANGE: `Layer` entity
+    - removed `Layer.dxf.line_weight` as synonym for `Layer.dxf.lineweight`
+    - renamed `Layer.dxf.plot_style_name` to `Layer.dxf.plotstyle_handle` 
+    - renamed `Layer.dxf.material` to `Layer.dxf.material_handle` 
+- CHANGE: same treatment of `Viewport` entity for all DXF versions
+- CHANGE: `Polyline.vertices()` is now an attribute `Polyline.vertices`, implemented as regular Python list.
+- CHANGE: `Insert.attribs()` is now an attribute `Insert.attribs`, implemented as regular Python list.
+- CHANGE: renamed `Viewport.dxf.center_point` to `Viewport.dxf.center` 
+- CHANGE: renamed `Viewport.dxf.target_point` to `Viewport.dxf.target`
+- CHANGE: direct access to hatch paths (`Hatch.paths`), pattern (`Hatch.pattern`) and gradient (`Hatch.gradient`), 
+          context manager to edit this data is not needed anymore, but still available for backward compatibility  
+- CHANGE: Options
+    - removed `template_dir`, no more needed
+    - new `log_unprocessed_tags` to log unprocessed (unknown) DXF tags 
+- CHANGE: `Dimension()` removes associated anonymous dimension block at deletion
+- CHANGE: safe block deletion protects not explicit referenced blocks like anonymous dimension blocks and arrow blocks
+- CHANGE: `Importer` add-on rewritten, API incompatible to previous ezdxf versions, but previous implementation was 
+          already broken 
+- CHANGE: moved `add_attdef()` to generic layout interface, adding ATTDEF to model- and paperspace is possible
+- CHANGE: entity query - exclude DXF types from `'*'` search, by appending type name with a preceding '!' e.g. query for 
+  all entities except LINE = `"* !LINE"`
+- CHANGE: entity query - removed regular expression support for type name match
+- CHANGE: integration of `MTextData` methods into `MText`
+- CHANGE: removed  `edit_data`, `get_text`, `set_text` methods from `MText`
+- restructured package, module and test file organization
+- NEW: support for `Layer.dxf.true_color` and `Layer.dxf.transparency` attributes (DXF R2004+, undocumented)
+- NEW: `Layer.rgb`, `Layer.color`, `Layer.description` and `Layer.transparency` properties
+- NEW: renaming a `Layer` also renames references to this layer, but use with care
+- NEW: support for adding LEADER entities
+- NEW: `Dimension.get_geometry_block()`, returns the associated anonymous dimension block or `None`
+- NEW: `EntityQuery()` got `first` and `last` properties, to get first or last entity or `None` if query result is empty
+- NEW: added `ngon()`, `star()` and `gear()` to `ezdxf.render.forms`
+- NEW: Source code generator to create Python source code from DXF entities, to recreate this entities by `ezdxf`. 
+  This tool creates only simple structures as a useful starting point for parametric DXF entity creation from existing 
+  DXF files. Not all DXF entities are supported!
+- NEW: support for named plot style files (STB)
+- NEW: can open converted Gerber DXF files tagged as "Version 1.0, Gerber Technology."
+- BUGFIX: fixed MTEXT and GEODATA text splitting errors (do not split at '^')
+- BUGFIX: fixed some subclass errors, mostly DXF reference errors
+- BUGFIX: VERTEX entity inherit `owner` and `linetype` attribute from POLYLINE entity
+- BUGFIX: MTEXT - replacement of `\n` by `\P` at DXF export to avoid invalid DXF files.
+- tested with CPython 3.8
+- removed batch files (.bat) for testing, use `tox` command instead
+
 Version 0.9 - 2019-02-24
 ------------------------
 

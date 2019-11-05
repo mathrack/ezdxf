@@ -33,7 +33,8 @@ class EntityQuery(abc.Sequence):
     ------------
 
     The entity query is a whitespace separated list of DXF entity names or the special name ``*``.
-    Where ``*`` means all DXF entities, all other DXF names have to be uppercase.
+    Where ``*`` means all DXF entities, exclude some entity types by appending their names with a preceding ``!``
+    (e.g. all entities except LINE = ``* !LINE``). All DXF names have to be uppercase.
 
     Attribute Query
     ---------------
@@ -89,36 +90,48 @@ class EntityQuery(abc.Sequence):
             self.entities = [entity for entity in entities if match(entity)]
 
     def __len__(self) -> int:
-        """
-        Count of result entities.
-
-        """
+        """ Returns count of DXF entities. """
         return len(self.entities)
 
     def __getitem__(self, item: int) -> 'DXFEntity':
+        """ Returns DXFEntity at index `item`, supports negative indices and slicing. """
         return self.entities.__getitem__(item)
 
-    def extend(self, entities: Iterable['DXFEntity'], query: str = '*', unique: bool = True) -> 'EntityQuery':
-        """
-        Extent the query container by entities matching a additional query.
+    def __iter__(self) -> Iterable['DXFEntity']:
+        """ Returns iterable of DXFEntity objects. """
+        return iter(self.entities)
 
-        """
+    @property
+    def first(self):
+        """ First entity or ``None``. """
+        if len(self.entities):
+            return self.entities[0]
+        else:
+            return None
+
+    @property
+    def last(self):
+        """ Last entity or ``None``. """
+        if len(self.entities):
+            return self.entities[-1]
+        else:
+            return None
+
+    def extend(self, entities: Iterable['DXFEntity'], query: str = '*', unique: bool = True) -> 'EntityQuery':
+        """ Extent the :class:`EntityQuery` container by entities matching an additional query. """
         self.entities.extend(EntityQuery(entities, query))
         if unique:
             self.entities = list(unique_entities(self.entities))
         return self
 
     def remove(self, query: str = '*') -> None:
-        """
-        Remove all entities from result container matching this additional query.
-
-        """
+        """ Remove all entities from :class:`EntityQuery` container matching this additional query. """
         handles_of_entities_to_remove = frozenset(entity.dxf.handle for entity in self.query(query))
         self.entities = [entity for entity in self.entities if entity.dxf.handle not in handles_of_entities_to_remove]
 
     def query(self, query: str = '*') -> 'EntityQuery':
         """
-        Returns a new result container with all entities matching this additional query.
+        Returns a new :class:`EntityQuery` container with all entities matching this additional query.
 
         raises: ParseException (pyparsing.py)
 
@@ -128,14 +141,12 @@ class EntityQuery(abc.Sequence):
     def groupby(self, dxfattrib: str = '', key: Callable[['DXFEntity'], Hashable] = None) \
             -> Dict[Hashable, List['DXFEntity']]:
         """
-        Returns a dict of entity lists, where entities are grouped by a dxfattrib or a key function.
+        Returns a dict of entity lists, where entities are grouped by a DXF attribute or a key function.
 
         Args:
-            dxfattrib: grouping DXF attribute like 'layer'
+            dxfattrib: grouping DXF attribute as string like ``'layer'``
             key: key function, which accepts a DXFEntity as argument, returns grouping key of this entity or None for
-            ignore this object. Reason for ignoring: a queried DXF attribute is not supported by this entity
-
-        Returns: dict
+                 ignore this object. Reason for ignoring: a queried DXF attribute is not supported by this entity
 
         """
         return groupby(self.entities, dxfattrib, key)
@@ -152,12 +163,20 @@ def entity_matcher(query: str) -> Callable[['DXFEntity'], bool]:
     return matcher
 
 
-def build_entity_name_matcher(names: Sequence[str]) -> Callable[['DXFEntity'], bool]:
+def build_entity_name_matcher_old(names: Sequence[str]) -> Callable[['DXFEntity'], bool]:
     entity_names = frozenset(names)
     if names[0] == '*':
         return lambda e: True
     else:
         return lambda e: e.dxftype() in entity_names
+
+
+def build_entity_name_matcher(names: Sequence[str]) -> Callable[['DXFEntity'], bool]:
+    def match(e: 'DXFEntity') -> bool:
+        return _match(e.dxftype())
+
+    _match = name_matcher(query=' '.join(names))
+    return match
 
 
 class Relation:
@@ -271,17 +290,49 @@ def unique_entities(entities: Iterable['DXFEntity']) -> Iterable['DXFEntity']:
 
 
 def name_query(names: Iterable[str], query: str = "*") -> Iterable[str]:
-    def build_regexp_matcher() -> Callable[[str], bool]:
-        if query == "*":
-            return lambda n: True
-        else:
-            # always match until end of string
-            matcher = re.compile(query + '$')
-            return lambda n: matcher.match(n) is not None
+    """
+    Filters `names` by `query` string. The `query` string of entity names divided by spaces. The special name "*"
+    matches any given name, a preceding "!" means exclude this name. Excluding names is only useful if the match any
+    name is also given (e.g. "LINE !CIRCLE" is equal to just "LINE", where "* !CIRCLE" matches everything except
+    CIRCLE").
 
-    match = build_regexp_matcher()
+    Args:
+        names: iterable of names to test
+        query: query string of entity names separated by spaces
+
+    Returns: yield matching names
+
+    """
+    match = name_matcher(query)
     return (name for name in names if match(name))
 
 
-def new(entities=None, query='*'):
+def name_matcher(query: str = "*") -> Callable[[str], bool]:
+    def match(e: str) -> bool:
+        if take_all:
+            return e not in exclude
+        else:
+            return e in include
+
+    match_strings = set(query.upper().split())
+    take_all = False
+    exclude = set()
+    include = set()
+    for name in match_strings:
+        if name == '*':
+            take_all = True
+        elif name.startswith('!'):
+            exclude.add(name[1:])
+        else:
+            include.add(name)
+
+    return match
+
+
+def new(entities: Iterable['DXFEntity'] = None, query: str = '*') -> EntityQuery:
+    """
+    Start a new query based on sequence `entities`. The `entities` argument has to be an iterable of
+    :class:`~ezdxf.entities.DXFEntity` or inherited objects and returns an :class:`EntityQuery` object.
+
+    """
     return EntityQuery(entities, query)

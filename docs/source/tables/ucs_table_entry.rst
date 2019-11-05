@@ -1,32 +1,56 @@
 UCS
 ====
 
-.. class:: UCS
+.. module:: ezdxf.entities
+    :noindex:
 
-Defines an user coordinate system (UCS).
+Defines an named or unnamed user coordinate system (`DXF Reference`_) for usage in CAD applications. This UCS table
+entry does not interact with `ezdxf` in any way, to do coordinate transformations by `ezdxf` use the
+:class:`ezdxf.math.UCS` class.
 
-DXF Attributes for UCS
-----------------------
+======================== ==========================================
+Subclass of              :class:`ezdxf.entities.DXFEntity`
+DXF type                 ``'UCS'``
+Factory function         :meth:`Drawing.ucs.new`
+======================== ==========================================
 
-.. attribute:: UCS.dxf.handle
+.. seealso::
 
-.. attribute:: UCS.dxf.owner
+    :ref:`ucs` and :ref:`ocs`
 
-requires DXF R13 or later
+.. class:: UCSTable
 
-.. attribute:: UCS.dxf.name
+    .. attribute:: dxf.owner
 
-.. attribute:: UCS.dxf.flags
+        Handle to owner (:class:`~ezdxf.sections.table.Table`).
 
-.. attribute:: UCS.dxf.origin
+    .. attribute:: dxf.name
 
-.. attribute:: UCS.dxf.xaxis
+        UCS name (str).
 
-.. attribute:: UCS.dxf.yaxis
+    .. attribute:: dxf.flags
 
-UCS Methods
------------
+        Standard flags (bit-coded values):
 
-.. method:: UCS.ucs()
+        === ========================================================
+        16  If set, table entry is externally dependent on an xref
+        32  If both this bit and bit 16 are set, the externally dependent xref has been successfully resolved
+        64  If set, the table entry was referenced by at least one entity in the drawing the last time the drawing was
+            edited. (This flag is only for the benefit of AutoCAD)
+        === ========================================================
 
-    Returns an :class:`ezdxf.math.UCS` object for this UCS table entry.
+    .. attribute:: dxf.origin
+
+        Origin  as ``(x, y, z)`` tuple
+
+    .. attribute:: dxf.xaxis
+
+        X-axis direction as ``(x, y, z)`` tuple
+
+    .. attribute:: dxf.yaxis
+
+        Y-axis direction as ``(x, y, z)`` tuple
+
+    .. automethod:: ucs() -> UCS
+
+.. _DXF Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-1906E8A7-3393-4BF9-BD27-F9AE4352FB8B
