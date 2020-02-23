@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created: 10.03.2011
-# Copyright (c) 2011-2019 Manfred Moitzi
+# Copyright (c) 2011-2020 Manfred Moitzi
 # License: MIT License
 import os
 from setuptools import setup, find_packages
@@ -9,8 +9,7 @@ from setuptools import setup, find_packages
 
 def get_version():
     v = {}
-    # do not import ezdxf, because required packages may not be installed yet
-    for line in open('./ezdxf/version.py').readlines():
+    for line in open('./src/ezdxf/version.py').readlines():
         if line.strip().startswith('__version__'):
             exec(line, v)
             return v['__version__']
@@ -40,8 +39,9 @@ setup(
     url='https://ezdxf.mozman.at',
     download_url='https://pypi.org/project/ezdxf/',
     author_email='me@mozman.at',
-    python_requires='>=3.5',
-    packages=find_packages(),
+    python_requires='>=3.6',
+    package_dir={'': 'src'},
+    packages=find_packages('src'),
     zip_safe=False,
     package_data={'ezdxf': ['pp/*.html', 'pp/*.js', 'pp/*.css', ]},
     entry_points={
@@ -54,7 +54,7 @@ setup(
     setup_requires=['wheel'],
     tests_require=['pytest'],
     keywords=['DXF', 'CAD'],
-    long_description=read('README.md')+read('NEWS.md', until='Version 0.7.9'),
+    long_description=read('README.md')+read('NEWS.md', until='Version 0.8.9'),
     long_description_content_type="text/markdown",
     platforms="OS Independent",
     license="MIT License",
@@ -63,7 +63,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",

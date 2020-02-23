@@ -44,6 +44,12 @@ Drawing Object
         ``'cp1258'`` Vietnam
         ============ =================
 
+    .. attribute:: output_encoding
+
+        Returns required output encoding for saving to filesystem or encoding to binary data.
+
+        .. versionadded:: 0.11
+
     .. attribute:: filename
 
         :class:`Drawing` filename, if loaded by :func:`ezdxf.readfile` else ``None``.
@@ -187,8 +193,6 @@ Drawing Object
 
     .. automethod:: add_xref_def
 
-    .. automethod:: cleanup
-
     .. automethod:: layouts_and_blocks
 
     .. automethod:: chain_layouts_and_blocks
@@ -196,3 +200,9 @@ Drawing Object
     .. automethod:: reset_fingerprint_guid
 
     .. automethod:: reset_version_guid
+
+    .. automethod:: set_modelspace_vport
+
+    .. automethod:: audit
+
+    .. automethod:: validate

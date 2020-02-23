@@ -79,6 +79,18 @@ def test_is_alive(entity):
     assert entity.is_alive is False
 
 
+def test_dont_write_handles_for_R12(entity):
+    from ezdxf.lldxf.tagwriter import TagWriter
+    from io import StringIO
+    s = StringIO()
+    t = TagWriter(s)
+    t.dxfversion = DXF12
+    t.write_handles = False
+    entity.export_dxf(t)
+    result = s.getvalue()
+    assert '5\nFFFF\n' not in result
+
+
 LINE_DATA = """  0
 LINE
   5
@@ -114,6 +126,13 @@ def line():
 def test_str(line):
     assert str(line) == "LINE(#0)"
     assert repr(line) == "<class 'ezdxf.entities.line.Line'> LINE(#0)"
+
+
+def test_get_dxf_defaul(line):
+    # get_dxf_default returns the DXF default value for unset attributes
+    assert line.dxf.get_default('thickness') == 0
+    # get returns the given default for unset attributes, which is None by default :)
+    assert line.dxf.get('thickness') is None
 
 
 def test_ocs(line):

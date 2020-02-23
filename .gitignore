@@ -1,18 +1,18 @@
 .tox
 .cache
 .eggs
+.idea
+.vscode
 DXFResearch
-build/*
-dist/*
-.idea/*
-ezdxf.egg-info/*
+build
+dist
+src/ezdxf.egg-info/*
 docs/build/*
-examples/*.dxf
-examples/addons/*.dxf
+examples/**/*.dxf
+experiments/**/*.dxf
+issues/**/*.dxf
+issues/**/*.html
 tools/plotstyles/*
 newctb.ctb
 __pycache__
-venv36
-venv37
-venv38
 

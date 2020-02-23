@@ -68,7 +68,7 @@ Factory function         :meth:`Drawing.dimstyles.new`
 
     .. attribute:: dxf.dimasz
 
-        Dimension line and arrowhead size. (default=0.28)
+        Dimension line and arrowhead size. (default=0.25)
 
     .. attribute:: dxf.dimexo
 
@@ -124,7 +124,7 @@ Factory function         :meth:`Drawing.dimstyles.new`
 
     .. attribute:: dxf.dimtvp
 
-        Vertical position of text above or below dimension line. (default=0)
+        Vertical position of text above or below dimension line if :attr:`~DimStyle.dxf.dimtad` is 0. (default=0)
 
     .. attribute:: dxf.dimtfac
 
@@ -164,15 +164,42 @@ Factory function         :meth:`Drawing.dimstyles.new`
 
     .. attribute:: dxf.dimtad
 
-        Sets text placement relative to dimension line. (default imperial=0, default metric=1)
+        Sets vertical text placement relative to dimension line. (default imperial=0, default metric=1)
+
+        === =====
+        0   center
+        1   above
+        2   outside, handled like above by `ezdxf`
+        3   JIS, handled like above by `ezdxf`
+        4   below
+        === =====
 
     .. attribute:: dxf.dimzin
 
-        Zero suppression for primary units dimensions. (default imperial=0, default metric=8) ???
+        Zero suppression for primary units dimensions. (default imperial=0, default metric=8)
+
+        Values 0-3 affect feet-and-inch dimensions only.
+
+        === =======================================================================================
+        0   Suppresses zero feet and precisely zero inches
+        1   Includes zero feet and precisely zero inches
+        2   Includes zero feet and suppresses zero inches
+        3   Includes zero inches and suppresses zero feet
+        4   Suppresses leading zeros in decimal dimensions (for example, 0.5000 becomes .5000)
+        8   Suppresses trailing zeros in decimal dimensions (for example, 12.5000 becomes 12.5)
+        12  Suppresses both leading and trailing zeros (for example, 0.5000 becomes .5)
+        === =======================================================================================
 
     .. attribute:: dxf.dimazin
 
         Controls zero suppression for angular dimensions. (default=0)
+
+        === =======================================================================================
+        0   Displays all leading and trailing zeros
+        1   Suppresses leading zeros in decimal dimensions (for example, 0.5000 becomes .5000)
+        2   Suppresses trailing zeros in decimal dimensions (for example, 12.5000 becomes 12.5)
+        3   Suppresses leading and trailing zeros (for example, 0.5000 becomes .5)
+        === =======================================================================================
 
     .. attribute:: dxf.dimalt
 
@@ -248,16 +275,30 @@ Factory function         :meth:`Drawing.dimstyles.new`
 
     .. attribute:: dxf.dimdsep
 
-        Specifies a single character to use as a decimal separator. (default imperial=".", default metric=",")
+        Specifies a single character to use as a decimal separator. (default imperial = ``'.'``, default metric = ``','``)
         This is an integer value, use :code:`ord('.')` to write value.
 
     .. attribute:: dxf.dimtmove
 
         Controls the format of dimension text when it is moved. (default=0)
 
+        === =====
+        0   Moves the dimension line with dimension text
+        1   Adds a leader when dimension text is moved
+        2   Allows text to be moved freely without a leader
+        === =====
+
     .. attribute:: dxf.dimjust
 
         Horizontal justification of dimension text. (default=0)
+
+        === =====
+        0   Center of dimension line
+        1   Left side of the dimension line, near first extension line
+        2   Right side of the dimension line, near second extension line
+        3   Over first extension line
+        4   Over second extension line
+        === =====
 
     .. attribute:: dxf.dimsd1
 
@@ -270,6 +311,16 @@ Factory function         :meth:`Drawing.dimstyles.new`
     .. attribute:: dxf.dimtolj
 
         Vertical justification for dimension tolerance text. (default=1)
+
+        === ====================================================
+        0   Align with bottom line of dimension text
+        1   Align vertical centered to dimension text
+        2   Align with top line of dimension text
+        === ====================================================
+
+    .. attribute:: dxf.dimtzin
+
+        Zero suppression for tolerances values, see :attr:`DimStyle.dxf.dimzin`
 
     .. attribute:: dxf.dimaltz
 

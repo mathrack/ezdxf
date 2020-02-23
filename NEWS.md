@@ -2,6 +2,100 @@
 News
 ====
 
+Version 0.11.1 - dev
+--------------------
+
+- NEW: `Meshbuilder.from_polyface()` to interface to `POLYFACE` and `POLYMESH` 
+- NEW: `Meshbuilder.render_polyface()` create `POLYFACE` objects
+- NEW: `ezdxf.addons.iterdxf` experimental feature to iterate over modelspace entities of really big DXF files (>5 GB)
+- CHANGES: refactor Auditor() into a DXF document fixer, fixes will be applied automatically (work in progress)
+
+Version 0.11 - 2020-02-15
+-------------------------
+
+- Using standard git branches: 
+  - `master`: development state
+  - `stable`: latest stable release
+- Requires Python 3.6
+- NEW: `Dimension.get_measurement()` supports angular, angular3p and ordinate dimensions
+- NEW: `Layout.add_radius_dim()` implemented
+- NEW: shortcut calls `Layout.add_radius_dim_2p()` and `Layout.add_radius_dim_cra()`
+- NEW: `Layout.add_diameter_dim()` implemented
+- NEW: shortcut `Layout.add_diameter_dim_2p()`
+- NEW: `Circle.vertices(angles)` yields vertices for iterable angles in WCS
+- NEW: `Ellipse.vertices(params)` yields vertices for iterable params in WCS
+- NEW: Arc properties `start_point` and `end_point` returns start- and end point of arc in WCS
+- NEW: Ellipse properties `start_point` and `end_point` returns start- and end point of ellipse in WCS
+- NEW: user defined point format support for 2d POLYLINE entities: 
+  `add_polyline2d([(1, 2, 0.5), (3, 4, 0)], format='xyb')` 
+- NEW: `Polyline.append_formatted_points()` with user defined point format support
+- NEW: `Drawing.set_modelspace_vport(height, center)` set initial view/zoom location for the modelspace
+- NEW: support for associating HATCH boundary paths to geometry entities
+- NEW: `Drawing.output_encoding` returns required output encoding
+- NEW: User Coordinate System (UCS) based entity transformation, allows to work with UCS coordinates, which are 
+  simpler if the UCS is chosen wisely, and transform them later into WCS coordinates. Entities which have a 
+  `transform_to_wcs(ucs)` method, automatically take advantage of the new UCS transformation methods, but not all entity 
+  types are supported, embedded ACIS entities like 3DSOLID, REGION, SURFACE and so on, do not expose their geometry.
+- NEW: `transform_to_wcs(ucs)` implemented for: 3DFACE, ARC, ATTDEF, ATTRIB, CIRCLE, ELLIPSE, HATCH, IMAGE, INSERT, 
+  LEADER, LINE, LWPOLYLINE, MESH, MTEXT, POINT, POLYLINE, RAY, SHAPE, SOLID, SPLINE, TEXT, TRACE, XLINE
+- NEW: `UCS.rotate(axis, angle)` returns a new UCS rotated around WCS vector `axis`
+- NEW: `UCS.rotate_local_x(angle)` returns a new UCS rotated around local x-axis
+- NEW: `UCS.rotate_local_y(angle)` returns a new UCS rotated around local y-axis
+- NEW: `UCS.rotate_local_z(angle)` returns a new UCS rotated around local z-axis
+- NEW: `UCS.copy()` returns a new copy of UCS
+- NEW: `UCS.shift(delta)` shifts UCS inplace by vector `delta`
+- NEW: `UCS.moveto(location)` set new UCS origin to `location` inplace
+- NEW: `size` and `center` properties for bounding box classes
+- NEW: `Insert.ucs()` returns an UCS placed in block reference `insert` location, UCS axis aligned to the block axis.
+- NEW: `Insert.reset_transformation()` reset block reference location, rotation and extrusion vector.
+- CHANGE: renamed `ezdxf.math.left_of_line` to `ezdxf.math.is_point_left_of_line` 
+- NEW: `ezdxf.math.point_to_line_relation()` 2D function returns `-1` for left oft line, `+1` for right oif line , `0` on the line
+- NEW: `ezdxf.math.is_point_on_line_2d()` test if 2D point is on 2D line 
+- NEW: `ezdxf.math.distance_point_line_2d()` distance of 2D point from 2D line
+- NEW: `ezdxf.math.is_point_in_polygon_2d()` test if 2D point is inside of a 2D polygon 
+- NEW: `ezdxf.math.intersection_line_line_2d()` calculate intersection for 2D lines 
+- NEW: `ezdxf.math.offset_vertices_2d()` calculate 2D offset vertices for a 2D polygon 
+- NEW: `ezdxf.math.normal_vector_3p()` returns normal vector for 3 points
+- NEW: `ezdxf.math.is_planar_face()` test if 3D face is planar
+- NEW: `ezdxf.math.subdivide_face()` linear subdivision for 2D/3D faces/polygons 
+- NEW: `ezdxf.math.intersection_ray_ray_3d()` calculate intersection for 3D rays 
+- NEW: `ezdxf.math.Plane()` 3D plane construction tool 
+- NEW: `ezdxf.render.MeshTransformer()` inplace mesh transformation class, subclass of `MeshBuilder()`
+- NEW: `MeshBuilder.render()` added UCS support
+- NEW: `MeshBuilder.render_normals()` render face normals as LINE entities, useful to check face orientation
+- NEW: `ezdxf.render.forms.cone_2p()` create 3D cone mesh from two points
+- NEW: `ezdxf.render.forms.cylinder_2p()` create 3D cylinder mesh from two points
+- NEW: `ezdxf.render.forms.sphere()` create 3D sphere mesh
+- NEW: `pycsg` add-on, a simple Constructive Solid Geometry (CSG) kernel created by Evan Wallace (Javascript) and 
+  Tim Knip (Python)
+- CHANGE: Changed predefined pattern scaling to BricsCAD and AutoCAD standard, set global option 
+  `ezdxf.options.use_old_predefined_pattern_scaling` to True, to use the old pattern scaling before v0.11 
+- CHANGE: removed `ezdxf.PATTERN` constant, use `PATTERN = ezdxf.pattern.load()` instead, set argument 
+  `old_pattern=True` to use the old pattern scaling before v0.11
+- CHANGE: `Table.key()` accepts only strings, therefore tables check `in` accepts also only strings 
+  like `entity.dxf.name`
+- NEW: load DXF comments from file (`ezdxf.comments.from_file`) or stream (`ezdxf.comments.from_stream`)
+- BUGFIX: fixed incorrect HATCH pattern scaling
+- BUGFIX: fixed base point calculation of aligned dimensions
+- BUGFIX: fixed length extension line support for linear dimensions
+- BUGFIX: `UCS.to_ocs_angle_deg()` and `UCS.to_ocs_angle_rad()`
+- BUGFIX: check for unsupported DXF versions at `new()`
+- BUGFIX: fixed dxf2src error for the HATCH entity
+- BUGFIX: `is_point_left_of_line()` algorithm was incorrect
+- BUGFIX: default `dimtxsty` is `Standard` if `options.default_dimension_text_style` is not defined
+- BUGFIX: default arrows for minimal defined dimstyles are closed filled arrows  
+- BUGFIX: use `Standard` as default for undefined dimension styles, e.g. `EZDXF` without setup  
+
+Version 0.10.4 - 2020-01-31
+---------------------------
+
+- BUGFIX: height group code (40) for TEXT, ATTRIB and ATTDEF is mandatory
+
+Version 0.10.3 - 2020-01-29
+---------------------------
+
+- BUGFIX: min DXF version for VISUALSTYLE object is R2000
+
 Version 0.10.2 - 2019-10-05
 ---------------------------
 
@@ -65,7 +159,7 @@ Version 0.10 - 2019-09-01
 - NEW: `Dimension.get_geometry_block()`, returns the associated anonymous dimension block or `None`
 - NEW: `EntityQuery()` got `first` and `last` properties, to get first or last entity or `None` if query result is empty
 - NEW: added `ngon()`, `star()` and `gear()` to `ezdxf.render.forms`
-- NEW: Source code generator to create Python source code from DXF entities, to recreate this entities by `ezdxf`. 
+- NEW: Source code generator to create Python source code from DXF entities, to recreate this entities by _ezdxf_. 
   This tool creates only simple structures as a useful starting point for parametric DXF entity creation from existing 
   DXF files. Not all DXF entities are supported!
 - NEW: support for named plot style files (STB)

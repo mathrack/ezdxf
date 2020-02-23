@@ -6,8 +6,10 @@ General preconditions:
 .. code-block:: python
 
     import ezdxf
-    dwg = ezdxf.readfile("your_dxf_file.dxf")
-    modelspace = dwg.modelspace()
+    doc = ezdxf.readfile("your_dxf_file.dxf")
+    msp = doc.modelspace()
+
+.. _set/get header variables:
 
 Set/Get Header Variables
 ------------------------
@@ -16,10 +18,12 @@ Set/Get Header Variables
 
 .. code-block:: python
 
-    dwg.header['VarName'] = value
-    value = dwg.header['VarName']
+    doc.header['VarName'] = value
+    value = doc.header['VarName']
 
 .. seealso:: :class:`HeaderSection` and online documentation from Autodesk for available `header variables`_.
+
+.. _set drawing units:
 
 Set DXF Drawing Units
 ---------------------
@@ -30,21 +34,38 @@ and decimal degrees for angles (in most cases).
 
 Sets drawing units:
 
+$MEASUREMENT controls whether the current drawing uses imperial or metric hatch pattern and linetype files:
+
 .. code-block:: python
 
 
-    dwg.header['$MEASUREMENT'] = 1
+    doc.header['$MEASUREMENT'] = 1
 
 === ===============
 0   English
 1   Metric
 === ===============
 
-Set Units format for angles:
+$LUNITS sets the linear units format for creating objects:
 
 .. code-block:: python
 
-    dwg.header['$AUNITS'] = 0
+
+    doc.header['$LUNITS'] = 2
+
+=== ===============
+1   Scientific
+2   Decimal (default)
+3   Engineering
+4   Architectural
+5   Fractional
+=== ===============
+
+$AUNITS set units format for angles:
+
+.. code-block:: python
+
+    doc.header['$AUNITS'] = 0
 
 === ===============
 0   Decimal degrees
@@ -53,12 +74,12 @@ Set Units format for angles:
 3   Radians
 === ===============
 
-Set default drawing units for AutoCAD DesignCenter blocks:
+$INSUNITS set default drawing units for AutoCAD DesignCenter blocks:
 
 .. code-block:: python
 
 
-    dwg.header['$INSUNITS'] = 6
+    doc.header['$INSUNITS'] = 6
 
 === ===============
 0   Unitless
@@ -101,7 +122,7 @@ Iterate over all appended attributes:
 .. code-block:: python
 
     # get all INSERT entities with entity.dxf.name == "Part12"
-    blockrefs = modelspace.query('INSERT[name=="Part12"]')
+    blockrefs = msp.query('INSERT[name=="Part12"]')
     if len(blockrefs):
         entity = blockrefs[0]  # process first entity found
         for attrib in entity.attribs():
@@ -171,40 +192,40 @@ between DXF entities, this simplifies the navigation between the DXF entities.
 
 .. important:: This does not render the graphical content of the DXF file to a HTML canvas element.
 
-Adding New XDATA to Entity
---------------------------
+Adding XDATA to Entities
+------------------------
 
-Adding XDATA as list of tuples (group code, value):
+Adding XDATA as list of tuples (group code, value) by :meth:`~ezdxf.entities.DXFEntity.set_xdata`, overwrites
+data if already present:
 
 .. code-block:: python
 
-    dwg.appids.new('YOUR_APP_NAME')  # IMPORTANT: create an APP ID entry
+    doc.appids.new('YOUR_APPID')  # IMPORTANT: create an APP ID entry
 
-    circle = modelspace.add_circle((10, 10), 100)
-    # remove attribute tags for v0.10 and later, see remark below
-    circle.tags.new_xdata('YOUR_APP_NAME',
-                     [
-                         (1000, 'your_web_link.org'),
-                         (1002, '{'),
-                         (1000, 'some text'),
-                         (1002, '{'),
-                         (1071, 1),
-                         (1002, '}'),
-                         (1002, '}')
-                     ])
+    circle = msp.add_circle((10, 10), 100)
+    circle.set_xdata(
+        'YOUR_APPID',
+        [
+            (1000, 'your_web_link.org'),
+            (1002, '{'),
+            (1000, 'some text'),
+            (1002, '{'),
+            (1071, 1),
+            (1002, '}'),
+            (1002, '}')
+        ])
 
-For group code meaning see DXF reference section `DXF Group Codes in Numerical Order Reference`, valid group codes are
+For group code meaning see DXF reference section `DXF Group Codes in Numerical Order Reference`_, valid group codes are
 in the range 1000 - 1071.
 
-.. versionchanged:: 0.10
-
-    Attribute :attr:`tags` is no more available, just remove the attribute reference: :code:`circle.new_xdata(...)`
+Method :meth:`~ezdxf.entities.DXFEntity.get_xdata` returns the extended data for an entity as
+:class:`~ezdxf.lldxf.tags.Tags` object.
 
 A360 Viewer Problems
 --------------------
 
 AutoDesk web service A360_ seems to be more picky than the AutoCAD desktop applications, may be it helps to use the
-latest DXF version supported by ezdxf, which is DXF R2018 (AC1032)  in the year of writing this lines (2018).
+latest DXF version supported by ezdxf, which is DXF R2018 (AC1032) in the year of writing this lines (2018).
 
 
 Show IMAGES/XREFS on Loading in AutoCAD
@@ -223,5 +244,19 @@ Thanks to `David Booth <https://github.com/worlds6440>`_:
 
 So far - no solution for showing IMAGES with relative paths on loading.
 
+Set Initial View/Zoom for the Modelspace
+----------------------------------------
+
+To show an arbitrary location of the modelspace centered in the CAD application window, set the ``'*Active'`` VPORT to
+this location. The DXF attribute :attr:`dxf.center` defines the location in the modelspace, and the :attr:`dxf.height`
+specifies the area of the modelspace to view. Shortcut function:
+
+.. code-block:: Python
+
+    doc.set_modelspace_vport(height=10, center=(10, 10))
+
+.. versionadded:: 0.11
+
 .. _A360: https://a360.autodesk.com/viewer/
 .. _header variables: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-A85E8E67-27CD-4C59-BE61-4DC9FADBE74A
+.. _DXF Group Codes in Numerical Order Reference: http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-3F0380A5-1C15-464D-BC66-2C5F094BCFB9

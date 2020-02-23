@@ -144,6 +144,16 @@ BaseLayout
 
     .. automethod:: add_aligned_dim
 
+    .. automethod:: add_radius_dim
+
+    .. automethod:: add_radius_dim_2p
+
+    .. automethod:: add_radius_dim_cra
+
+    .. automethod:: add_diameter_dim
+
+    .. automethod:: add_diameter_dim_2p
+
     .. automethod:: add_leader
 
     .. automethod:: add_body

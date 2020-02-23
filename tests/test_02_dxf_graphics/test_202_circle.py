@@ -6,6 +6,7 @@ import pytest
 from ezdxf.entities.circle import Circle
 from ezdxf.lldxf.const import DXF12, DXF2000
 from ezdxf.lldxf.tagwriter import TagCollector, basic_tags_from_text
+from ezdxf.math import Vector, UCS
 
 TEST_CLASS = Circle
 TEST_TYPE = 'CIRCLE'
@@ -60,7 +61,7 @@ def test_registered():
 
 
 def test_default_init():
-    entity= TEST_CLASS()
+    entity = TEST_CLASS()
     assert entity.dxftype() == TEST_TYPE
     assert entity.dxf.handle is None
     assert entity.dxf.owner is None
@@ -95,6 +96,28 @@ def test_load_from_text(entity):
     assert entity.dxf.radius == 1
 
 
+def test_get_point_2d_circle():
+    radius = 2.5
+    z = 3.0
+    circle = TEST_CLASS.new(handle='ABBA', owner='0', dxfattribs={
+        'center': (1, 2, z),
+        'radius': radius,
+    })
+    vertices = list(circle.vertices([90]))
+    assert vertices[0].isclose(Vector(1, 2+radius, z))
+
+
+def test_get_point_with_ocs():
+    circle = TEST_CLASS.new(handle='ABBA', owner='0', dxfattribs={
+        'center': (1, 2, 3),
+        'radius': 2.5,
+        'extrusion': (0, 0, -1),
+    })
+    vertices = list(circle.vertices([90, 180]))
+    assert vertices[0].isclose(Vector(-1, 4.5, -3), abs_tol=1e-6)
+    assert vertices[1].isclose(Vector(1.5, 2, -3), abs_tol=1e-6)
+
+
 @pytest.mark.parametrize("txt,ver", [(ENTITY_R2000, DXF2000), (ENTITY_R12, DXF12)])
 def test_write_dxf(txt, ver):
     expected = basic_tags_from_text(txt)
@@ -106,3 +129,4 @@ def test_write_dxf(txt, ver):
     collector2 = TagCollector(dxfversion=ver, optional=False)
     circle.export_dxf(collector2)
     assert collector.has_all_tags(collector2)
+
